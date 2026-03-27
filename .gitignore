@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+fire-extinguisher-ar_20250126.tar
+*.log
+.env
+.vscode/
