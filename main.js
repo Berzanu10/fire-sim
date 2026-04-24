@@ -3,7 +3,9 @@ import * as THREE from "three";
 
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
+
 import { AnimationMixer } from "three";
 import { GasDispersionSystem } from "./gasDispersion.js";
 
@@ -25,6 +27,7 @@ let room; // Oda objesi
 let isLocked = false; // Pointer lock durumu
 let currentInteractable = null; // Şu an bakılan etkileşimli obje
 let interactionHintDiv; // E tuşu ipucu elementi
+window.isWindowOpen = false; // Pencere durumu
 window.isDoorOpen = false; // Kapı durumu
 window.doorGroup = null; // Kapı objesi referansı
 let handsGroup; // Procedural hands group
@@ -319,51 +322,39 @@ const loadedModels = {};
 let modelsLoaded = false;
 
 // Model yükleme fonksiyonu - Promise tabanlı
-function loadModel(modelKey) {
-  return new Promise((resolve, reject) => {
-    const config = REALISTIC_MODELS[modelKey];
-    if (!config) {
-      reject(new Error(`Model config not found: ${modelKey}`));
-      return;
-    }
+// Model yükleme fonksiyonu
+function loadModel(key) {
+  const config = REALISTIC_MODELS[key];
+  if (!config) return Promise.resolve(null);
 
+  const gltfLoader = new GLTFLoader();
+  const fbxLoader = new FBXLoader();
+  const isFBX = config.file.toLowerCase().endsWith('.fbx');
+  const loader = isFBX ? fbxLoader : gltfLoader;
+
+  return new Promise((resolve) => {
     loader.load(
-      config.file,
-      (gltf) => {
-        const model = gltf.scene;
-        model.position.set(
-          config.position.x,
-          config.position.y,
-          config.position.z
-        );
+      `assets/3D/${config.file}`,
+      (result) => {
+        const model = isFBX ? result : result.scene;
         model.scale.set(config.scale.x, config.scale.y, config.scale.z);
-        model.rotation.set(
-          config.rotation.x,
-          config.rotation.y,
-          config.rotation.z
-        );
-
-        // Gölge ayarları
+        model.position.set(config.position.x, config.position.y, config.position.z);
+        model.rotation.set(config.rotation.x, config.rotation.y, config.rotation.z);
+        
         model.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
           }
         });
-
-        loadedModels[modelKey] = model;
-        console.log(`✓ Model loaded: ${modelKey}`);
+        
+        loadedModels[key] = model;
         resolve(model);
-
       },
-      (progress) => {
-        // Yükleme ilerleme
-      },
+      undefined,
       (error) => {
-        console.warn(
-          `⚠ Model yüklenemedi: ${modelKey} - Fallback kullanılacak`
-        );
-        resolve(null); // Hata durumunda null döndür, reject yapma
+        console.warn(`⚠ Model yüklenemedi: ${config.file}`, error);
+        resolve(null);
       }
     );
   });
@@ -372,15 +363,12 @@ function loadModel(modelKey) {
 // Tüm modelleri yükle
 async function loadAllRealisticModels() {
   console.log("📦 Loading realistic models...");
-
-  const modelKeys = Object.keys(REALISTIC_MODELS);
-  const loadPromises = modelKeys.map((key) => loadModel(key));
-
-  await Promise.all(loadPromises);
-
+  const promises = Object.keys(REALISTIC_MODELS).map(key => loadModel(key));
+  await Promise.all(promises);
   modelsLoaded = true;
-  console.log("✅ Model loading complete!");
+  console.log("✅ All models loaded!");
 }
+
 
 
 const cubeGeometry = new THREE.BoxGeometry();
@@ -754,7 +742,7 @@ async function createRoom() {
   if (loadedModels.window) {
     const windowModel = loadedModels.window.clone();
     windowModel.position.set(1.5, 1.7, roomSize / 2);
-    windowModel.scale.set(3.5, 3.5, 3.5); // Increase scale
+    windowModel.scale.set(150, 150, 150); // Massive scale for FBX fallback
     windowModel.name = "Window";
     windowModel.traverse(child => {
       if (child.isMesh) {
@@ -765,6 +753,19 @@ async function createRoom() {
     });
     room.add(windowModel);
     window.officeWindow = windowModel;
+  } else {
+    // Fallback Window
+    const windowGeo = new THREE.BoxGeometry(1.0, 1.2, 0.05);
+    const windowMat = new THREE.MeshStandardMaterial({ 
+      color: 0x88ccff, 
+      transparent: true, 
+      opacity: 0.3 
+    });
+    const fallbackWindow = new THREE.Mesh(windowGeo, windowMat);
+    fallbackWindow.position.set(1.5, 1.7, roomSize / 2);
+    fallbackWindow.name = "Window";
+    room.add(fallbackWindow);
+    window.officeWindow = fallbackWindow;
   }
 
   // Üst Parça (Kapı üstü)
@@ -1458,10 +1459,12 @@ function createAirSources() {
     if (loadedModels.ventilationFan) {
       const fanModel = loadedModels.ventilationFan.clone();
       fanModel.name = name;
-      fanModel.scale.set(10.0, 10.0, 10.0);
-      
-      // Explicit rotation to be parallel to ZY plane (flush with left wall)
+      // Corrected rotation: flip 180 from previous to face the room correctly
       fanModel.rotation.set(0, Math.PI / 2, 0);
+      fanModel.scale.set(10.0, 10.0, 10.0);
+
+
+
       
       fanModel.traverse(child => {
         if (child.isMesh) {
@@ -1484,8 +1487,8 @@ function createAirSources() {
   };
 
   airSources.push(createFan(source1Pos, "AirSource1"));
-  airSources.push(createFan(source2Pos, "AirSource2"));
 }
+
 
 
 function handleInteraction(object) {
@@ -1753,10 +1756,8 @@ function animate() {
 
   deltaTime = clock.getDelta();
 
-  controls.update();
-  controls.dampingFactor = guiObject.value4;
-
   // WASD ile birinci şahıs hareket güncellemesi
+
   updateFirstPersonMovement(deltaTime);
 
   updateInteraction();
@@ -2042,7 +2043,12 @@ function updateInteraction() {
           foundInteractable = object;
           const actionText = window.isDoorOpen ? "CLOSE" : "OPEN";
           hintText = `🚪 PRESS [E] TO ${actionText} DOOR`;
+        } else if (object.name === "Window") {
+          foundInteractable = object;
+          const actionText = window.isWindowOpen ? "CLOSE" : "OPEN";
+          hintText = `🪟 PRESS [E] TO ${actionText} WINDOW`;
         } else if (object.name.includes("AirSource")) {
+
           foundInteractable = object;
           const source = airSources.find(s => s.mesh.name === object.name);
           const actionText = source && source.active ? "STOP" : "START";
