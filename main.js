@@ -5,6 +5,8 @@ import { PointerLockControls } from "three/addons/controls/PointerLockControls.j
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
 import { AnimationMixer } from "three";
+import { GasDispersionSystem } from "./gasDispersion.js";
+
 
 // Post Processing
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -26,6 +28,8 @@ let interactionHintDiv; // E tuşu ipucu elementi
 window.isDoorOpen = false; // Kapı durumu
 window.doorGroup = null; // Kapı objesi referansı
 let handsGroup; // Procedural hands group
+window.gasSystem = null; // Gaz yayılım sistemi referansı
+
 
 const clock = new THREE.Clock();
 let deltaTime;
@@ -35,16 +39,13 @@ const EYE_HEIGHT = 1.6;
 const CROUCH_HEIGHT = 0.8;
 let isCrouched = false;
 
-// Deprem Sistemi Değişkenleri
-let isQuakeActive = false;
-let quakeIntensity = 0;
-let quakeTime = 0;
-
 // Senaryo Durum Değişkenleri
 let timerStarted = false;
 let startTime = 0;
 let scenarioEnded = false;
 let decisionLog = [];
+let airSources = []; // Havalandırma kaynakları
+
 
 // ==================== FPS HAREKET KONTROLLERİ (WASD) ====================
 // Klavye ile birinci şahıs (kişi POV) hareketi için değişkenler
@@ -78,12 +79,9 @@ function onKeyDown(event) {
         handleInteraction(currentInteractable);
       }
       break;
-    case "KeyC":
-      if (event.repeat) return;
-      isCrouched = !isCrouched;
-      break;
   }
 }
+
 
 // Etkileşim işleyicisi
 function handleInteraction(object) {
@@ -168,9 +166,9 @@ function updateFirstPersonMovement(delta) {
   // Sadece kilitliyse (senaryo başladığında kilitleniyor) harekete izin ver
   if (!controls.isLocked) return;
 
-  // Yüksekliği sabitle (göz hizası sabit kalsın veya çömelme)
-  const targetEyeHeight = isCrouched ? CROUCH_HEIGHT : EYE_HEIGHT;
-  camera.position.y += (targetEyeHeight - camera.position.y) * 10 * delta;
+  // Yüksekliği sabitle (göz hizası sabit kalsın)
+  camera.position.y += (EYE_HEIGHT - camera.position.y) * 10 * delta;
+
 
   // Hiçbir tuşa basılmıyorsa çık (ama yükseklik enterpolasyonu çalışmaya devam etmeli diye yukarı aldık)
   if (
@@ -591,7 +589,15 @@ async function init() {
   if (SHADOWS_ENABLED) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   // Post-processing kaldırıldı - performans ve uyumluluk için sadece standart renderer kullanılıyor.
+
+  // -------------------- Gaz Yayılım Sistemi --------------------
+  window.gasSystem = new GasDispersionSystem(scene, new THREE.Vector3(0, 1.0, -1.8));
+
+  // -------------------- Havalandırma Kaynakları --------------------
+  createAirSources();
 }
+
+
 
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -1381,27 +1387,88 @@ function createElectricalPanel() {
 
 // ----------------- Yangın Kontrol Fonksiyonları ------------------------
 
-function startEarthquake() {
+function createAirSources() {
+  const source1Pos = new THREE.Vector3(-2.4, 1.5, 0); // Sol duvar
+  const source2Pos = new THREE.Vector3(2.4, 1.5, 0);  // Sağ duvar
+
+  const createSource = (pos, name, dir) => {
+    const group = new THREE.Group();
+    group.position.copy(pos);
+
+    // Görsel kutu
+    const geo = new THREE.BoxGeometry(0.2, 0.5, 0.5);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.8 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = name;
+    group.add(mesh);
+
+    // Pervane/Izgara detayı
+    const grillGeo = new THREE.PlaneGeometry(0.4, 0.4);
+    const grillMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.DoubleSide });
+    const grill = new THREE.Mesh(grillGeo, grillMat);
+    grill.rotation.y = pos.x > 0 ? -Math.PI / 2 : Math.PI / 2;
+    grill.position.x = pos.x > 0 ? -0.11 : 0.11;
+    grill.name = name;
+    group.add(grill);
+
+    scene.add(group);
+    return { pos, direction: dir, active: false, mesh };
+  };
+
+  airSources.push(createSource(source1Pos, "AirSource1", new THREE.Vector3(1, 0, 0)));
+  airSources.push(createSource(source2Pos, "AirSource2", new THREE.Vector3(-1, 0, 0)));
+}
+
+function handleInteraction(object) {
+  if (object.name === "Door") {
+    toggleDoor();
+  } else if (object.name.includes("AirSource")) {
+    const source = airSources.find(s => s.mesh.name === object.name);
+    if (source) {
+      source.active = !source.active;
+      source.mesh.material.color.set(source.active ? 0x00ff00 : 0x555555);
+      showMessage(source.active ? "🌬️ Havalandırma Açıldı" : "🔇 Havalandırma Kapatıldı", 1000);
+    }
+  }
+}
+
+function startScenario() {
   if (!timerStarted) {
     timerStarted = true;
     startTime = Date.now();
   }
 
-  isQuakeActive = true;
-  quakeIntensity = 1.0;
-  quakeTime = 0;
+  // Gaz sızıntısını başlat
+  if (window.gasSystem) {
+    window.gasSystem.start();
+  }
 
-  // Elektrik kesintisi
-  cutElectricity();
+  // Başlat butonunu hemen gizle
+  const startBtn = document.getElementById("startScenarioBtn");
+  if (startBtn) {
+    startBtn.style.display = "none";
+  }
 
-  decisionLog.push({
-    time: Date.now() - startTime,
-    action: "earthquake_started",
-    description: "Deprem başladı!",
-  });
+  if (controls && !controls.isLocked) {
+    controls.lock();
+  }
 
-  console.log("⚡ Deprem başladı!");
+  const instructionsDiv = document.getElementById("instructions");
+  if (instructionsDiv) instructionsDiv.classList.add("collapsed");
+
+  const statusDiv = document.getElementById("quakeStatus");
+  if (statusDiv) {
+    statusDiv.textContent = "⚠️ GAZ SIZINTISI BAŞLADI!";
+    statusDiv.style.color = "#ff0000";
+  }
+
+  // Zamanlayıcıyı ve crosshair'ı göster
+  const timerDiv = document.getElementById("timer");
+  if (timerDiv) timerDiv.style.display = "block";
+  const crosshair = document.getElementById("crosshair");
+  if (crosshair) crosshair.style.display = "block";
 }
+
 
 // Elektriği kes
 function cutElectricity() {
@@ -1708,6 +1775,12 @@ function animate() {
 
   updateInteraction();
 
+  // Gaz Yayılım Sistemi Güncellemesi
+  if (window.gasSystem) {
+    window.gasSystem.update(deltaTime);
+  }
+
+
   // --- DEPREM SARSINTISI ---
   let shakeOffset = new THREE.Vector3();
   let rollOffset = 0;
@@ -1797,9 +1870,15 @@ function animate() {
   }
 
   // Durum güncelleme
-  if (isQuakeActive) {
-    updateStatus();
+  // Havalandırma Etkisi
+  if (timerStarted && window.gasSystem) {
+    airSources.forEach(source => {
+      if (source.active) {
+        window.gasSystem.applyAirflow(source.pos, source.direction, 0.5);
+      }
+    });
   }
+
 
   // Zamanlayıcıyı göster (sadece senaryo devam ederken)
   if (timerStarted && !scenarioEnded) {
@@ -1993,34 +2072,10 @@ function startScenario() {
   // Yangın durumu penceresinde uyarı göster
   const statusDiv = document.getElementById("fireStatus");
   if (statusDiv) {
-    statusDiv.textContent = "🚪 Ofise giriyorsunuz...";
-    statusDiv.style.color = "#ffffff";
-    statusDiv.style.borderColor = "#ffffff";
-  }
-
-  setTimeout(() => {
-    if (statusDiv) {
-      statusDiv.textContent = "Sarsıntı bekliyor...";
-      statusDiv.style.color = "#ffff00";
-      statusDiv.style.borderColor = "#ffff00";
-      statusDiv.style.animation = "pulse 0.5s infinite";
-    }
-
-    startEarthquake();
-
-    // Zamanlayıcıyı göster
-    const timerDiv = document.getElementById("timer");
-    if (timerDiv) {
-      timerDiv.style.display = "block";
-    }
-
-    // Crosshair göster
-    const crosshair = document.getElementById("crosshair");
-    if (crosshair) {
-      crosshair.style.display = "block";
-    }
+    startScenario();
   }, 2000);
 }
+
 
 // Global fonksiyonları export et
 window.fireSimulation = {
@@ -2065,12 +2120,16 @@ function updateInteraction() {
 
       // Mesafe kontrolü
       if (intersects[0].distance < 3.0) { // 3 metre etkileşim mesafesi
-        if (object.name === "Door") {
-          foundInteractable = object;
           const actionText = window.isDoorOpen ? "KAPATMAK" : "AÇMAK";
           hintText = `🚪 KAPIYI ${actionText} İÇİN [E]`;
+        } else if (object.name.includes("AirSource")) {
+          foundInteractable = object;
+          const source = airSources.find(s => s.mesh.name === object.name);
+          const actionText = source && source.active ? "KAPATMAK" : "AÇMAK";
+          hintText = `🌬️ HAVALANDIRMAYI ${actionText} İÇİN [E]`;
         }
       }
+
     }
   }
 
