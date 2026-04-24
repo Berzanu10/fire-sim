@@ -36,8 +36,7 @@ let deltaTime;
 
 // Göz hizası sabit yüksekliği (metre cinsinden)
 const EYE_HEIGHT = 1.6;
-const CROUCH_HEIGHT = 0.8;
-let isCrouched = false;
+
 
 // Senaryo Durum Değişkenleri
 let timerStarted = false;
@@ -83,13 +82,7 @@ function onKeyDown(event) {
 }
 
 
-// Etkileşim işleyicisi
-function handleInteraction(object) {
-  if (object.name === "Door") {
-    // Kapı aç/kapat
-    toggleDoor();
-  }
-}
+
 
 function toggleDoor() {
   if (!window.doorGroup) return;
@@ -288,12 +281,20 @@ const REALISTIC_MODELS = {
   // Saksı Bitkisi (Sol Arka Köşe)
   plant: {
     file: "majesty_palm_plant.glb",
-    position: { x: -2.0, y: 0, z: -2.0 }, // Sol arka köşe - duvardan uzaklaştırıldı
-    scale: { x: 1.2, y: 1.2, z: 1.2 }, // Daha sade bir boyut
+    position: { x: -2.0, y: 0, z: -2.0 },
+    scale: { x: 1.2, y: 1.2, z: 1.2 },
     rotation: { x: 0, y: 0, z: 0 },
   },
-  // Yangın Dolabı (Su sistemi / Hortum Dolabı) - Kod ile oluşturulacak
+  // Ventilation Fan
+  ventilationFan: {
+    file: "ventilation_fan.glb",
+    position: { x: 0, y: 0, z: 0 },
+    scale: { x: 2.5, y: 2.5, z: 2.5 }, // Increased 5x from 0.5
+    rotation: { x: 0, y: 0, z: 0 },
+  }
 };
+
+
 
 // Yüklenen modelleri saklayacak obje
 const loadedModels = {};
@@ -333,8 +334,9 @@ function loadModel(modelKey) {
         });
 
         loadedModels[modelKey] = model;
-        console.log(`✓ Model yüklendi: ${modelKey}`);
+        console.log(`✓ Model loaded: ${modelKey}`);
         resolve(model);
+
       },
       (progress) => {
         // Yükleme ilerleme
@@ -351,7 +353,7 @@ function loadModel(modelKey) {
 
 // Tüm modelleri yükle
 async function loadAllRealisticModels() {
-  console.log("📦 Gerçekçi modeller yükleniyor...");
+  console.log("📦 Loading realistic models...");
 
   const modelKeys = Object.keys(REALISTIC_MODELS);
   const loadPromises = modelKeys.map((key) => loadModel(key));
@@ -359,8 +361,9 @@ async function loadAllRealisticModels() {
   await Promise.all(loadPromises);
 
   modelsLoaded = true;
-  console.log("✅ Model yükleme tamamlandı!");
+  console.log("✅ Model loading complete!");
 }
+
 
 const cubeGeometry = new THREE.BoxGeometry();
 const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
@@ -604,11 +607,8 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
 
   renderer.setSize(window.innerWidth, window.innerHeight);
-
-  composer.setSize(window.innerWidth, window.innerHeight); // Update composer size
-
-  render();
 }
+
 
 // ----------------- Oda Fonksiyonu ------------------------
 
@@ -1357,8 +1357,8 @@ function createElectricalPanel() {
   line.position.set(panelX - 0.08, panelY - 0.15, panelZ);
   room.add(line);
 
-  // "ELEKTRİK PANOSU" yazı plakası
-  const labelGeometry = new THREE.BoxGeometry(0.01, 0.06, 0.35); // Döndürüldü
+  // "ELECTRICAL PANEL" label plate
+  const labelGeometry = new THREE.BoxGeometry(0.01, 0.06, 0.35);
   const labelMaterial = new THREE.MeshStandardMaterial({
     color: 0x333333,
     emissive: 0x111111,
@@ -1368,7 +1368,8 @@ function createElectricalPanel() {
   label.position.set(panelX - 0.08, panelY + 0.35, panelZ);
   room.add(label);
 
-  // Kilit/mandal
+  // Lock/Latch
+
   const lockGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8);
   const lockMaterial = new THREE.MeshStandardMaterial({
     color: 0x222222,
@@ -1388,36 +1389,44 @@ function createElectricalPanel() {
 // ----------------- Yangın Kontrol Fonksiyonları ------------------------
 
 function createAirSources() {
-  const source1Pos = new THREE.Vector3(-2.4, 1.5, 0); // Sol duvar
-  const source2Pos = new THREE.Vector3(2.4, 1.5, 0);  // Sağ duvar
+  const source1Pos = new THREE.Vector3(-2.45, 1.8, 0); // Left wall
+  const source2Pos = new THREE.Vector3(2.45, 1.8, 0);  // Right wall
 
-  const createSource = (pos, name, dir) => {
+  const createFan = (pos, name) => {
     const group = new THREE.Group();
     group.position.copy(pos);
+    
+    if (loadedModels.ventilationFan) {
+      const fanModel = loadedModels.ventilationFan.clone();
+      fanModel.name = name;
+      // Rotate to be parallel to the wall (model faces room)
+      // If diagonal, we might need to adjust this depending on the GLB's internal orientation
+      fanModel.rotation.y = pos.x > 0 ? -Math.PI / 2 : Math.PI / 2;
+      
+      // Ensure all meshes in the model have the correct name for raycasting
+      fanModel.traverse(child => {
+        if (child.isMesh) child.name = name;
+      });
+      
+      group.add(fanModel);
+    } else {
+      // Fallback - larger box
+      const geo = new THREE.BoxGeometry(0.1, 1.0, 1.0);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x555555 });
 
-    // Görsel kutu
-    const geo = new THREE.BoxGeometry(0.2, 0.5, 0.5);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.8 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.name = name;
-    group.add(mesh);
-
-    // Pervane/Izgara detayı
-    const grillGeo = new THREE.PlaneGeometry(0.4, 0.4);
-    const grillMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.DoubleSide });
-    const grill = new THREE.Mesh(grillGeo, grillMat);
-    grill.rotation.y = pos.x > 0 ? -Math.PI / 2 : Math.PI / 2;
-    grill.position.x = pos.x > 0 ? -0.11 : 0.11;
-    grill.name = name;
-    group.add(grill);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = name;
+      group.add(mesh);
+    }
 
     scene.add(group);
-    return { pos, direction: dir, active: false, mesh };
+    return { pos, active: false, mesh: group.children[0] };
   };
 
-  airSources.push(createSource(source1Pos, "AirSource1", new THREE.Vector3(1, 0, 0)));
-  airSources.push(createSource(source2Pos, "AirSource2", new THREE.Vector3(-1, 0, 0)));
+  airSources.push(createFan(source1Pos, "AirSource1"));
+  airSources.push(createFan(source2Pos, "AirSource2"));
 }
+
 
 function handleInteraction(object) {
   if (object.name === "Door") {
@@ -1426,11 +1435,46 @@ function handleInteraction(object) {
     const source = airSources.find(s => s.mesh.name === object.name);
     if (source) {
       source.active = !source.active;
-      source.mesh.material.color.set(source.active ? 0x00ff00 : 0x555555);
-      showMessage(source.active ? "🌬️ Havalandırma Açıldı" : "🔇 Havalandırma Kapatıldı", 1000);
+      // Visual feedback: Emit light or change color if possible, or just message
+      showMessage(source.active ? "🌬️ Ventilation ON" : "🔇 Ventilation OFF", 1000);
+      
+      // Update fan material to indicate state
+      source.mesh.traverse((child) => {
+        if (child.isMesh) {
+          child.material.emissive = new THREE.Color(source.active ? 0x00ff00 : 0x000000);
+          child.material.emissiveIntensity = 0.5;
+        }
+      });
     }
   }
 }
+
+
+window.validateAndStart = function() {
+  const name = document.getElementById("userName").value.trim();
+  const surname = document.getElementById("userSurname").value.trim();
+
+  if (!name || !surname) {
+    alert("Please enter your name and surname.");
+    return;
+  }
+
+
+  window.userData = {
+    name: name,
+    surname: surname,
+    startTime: new Date().toLocaleString()
+  };
+
+  const controlsIntro = document.getElementById("controls-intro");
+  if (controlsIntro) {
+    controlsIntro.style.display = "none";
+  }
+
+  // Oda turunu başlat
+  runRoomTour();
+};
+
 
 function startScenario() {
   if (!timerStarted) {
@@ -1458,9 +1502,10 @@ function startScenario() {
 
   const statusDiv = document.getElementById("quakeStatus");
   if (statusDiv) {
-    statusDiv.textContent = "⚠️ GAZ SIZINTISI BAŞLADI!";
+    statusDiv.textContent = "⚠️ GAS LEAK DETECTED!";
     statusDiv.style.color = "#ff0000";
   }
+
 
   // Zamanlayıcıyı ve crosshair'ı göster
   const timerDiv = document.getElementById("timer");
@@ -1471,8 +1516,9 @@ function startScenario() {
 
 // Ses sistemi
 function initAudio() {
-  console.log("✓ Ses sistemi hazır");
+  console.log("✓ Audio system ready");
 }
+
 
 // Mesaj göster
 function showMessage(message, duration = 4000) {
@@ -1508,15 +1554,14 @@ function endScenario(result) {
 
 
 function exportToCSV(totalTime, score, resultText) {
-  // Kullanıcı bilgisini al
-  const user = window.userData || { name: "Bilinmeyen", surname: "Kullanıcı", startTime: new Date().toLocaleString() };
+  // Get user info
+  const user = window.userData || { name: "Unknown", surname: "User", startTime: new Date().toLocaleString() };
 
-  // Excel'in sayıları "tarih" gibi otomatik biçimlendirmesini engellemek için
-  // zamanı metin olarak yazdırıyoruz (örn: 00:12.3).
+  // Helper to format time
   function formatElapsedTime(seconds) {
     const safeSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
     const totalSecondsInt = Math.floor(safeSeconds);
-    const tenths = Math.floor((safeSeconds - totalSecondsInt) * 10 + 1e-9); // 0-9
+    const tenths = Math.floor((safeSeconds - totalSecondsInt) * 10 + 1e-9);
 
     const mins = Math.floor(totalSecondsInt / 60);
     const secs = totalSecondsInt % 60;
@@ -1526,19 +1571,20 @@ function exportToCSV(totalTime, score, resultText) {
     return `${mm}:${ss}.${tenths}`;
   }
 
-  // CSV İçeriği Oluştur
-  let csvContent = "\uFEFF"; // UTF-8 BOM (Excel için Türkçe karakter desteği)
-  csvContent += "Yangın Eğitimi Simülasyon Raporu\n";
+  // Create CSV Content
+  let csvContent = "\uFEFF"; // UTF-8 BOM
+  csvContent += "Gas Leak Training Simulation Report\n";
   csvContent += "--------------------------------\n";
-  csvContent += `Ad Soyad;${user.name} ${user.surname}\n`;
-  csvContent += `Tarih;${user.startTime}\n`;
-  csvContent += `Toplam Süre;${totalTime} saniye\n`;
-  csvContent += `Puan;${score}\n`;
-  csvContent += `Sonuç;${resultText.replace(/\n/g, " ")}\n\n`;
+  csvContent += `Full Name;${user.name} ${user.surname}\n`;
+  csvContent += `Date;${user.startTime}\n`;
+  csvContent += `Total Time;${totalTime} seconds\n`;
+  csvContent += `Score;${score}\n`;
+  csvContent += `Result;${resultText.replace(/\n/g, " ")}\n\n`;
 
   csvContent += "--------------------------------\n";
-  csvContent += "DETAYLI HAREKET DÖKÜMÜ\n";
-  csvContent += "Zaman (mm:ss.s);Eylem;Açıklama\n";
+  csvContent += "DETAILED MOVEMENT LOG\n";
+  csvContent += "Time (mm:ss.s);Action;Description\n";
+
 
   // Logları ekle
   decisionLog.forEach(log => {
@@ -1551,20 +1597,21 @@ function exportToCSV(totalTime, score, resultText) {
     csvContent += `${time};${log.action};${desc}\n`;
   });
 
-  // Dosya İndirme İşlemi
+  // Download File
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
 
-  // Dosya adı: Ad_Soyad_Tarih.csv
+  // Filename: Name_Surname_Date.csv
   const dateStr = new Date().toISOString().slice(0, 10);
   link.setAttribute("href", url);
-  link.setAttribute("download", `Egitim_Raporu_${user.name}_${user.surname}_${dateStr}.csv`);
+  link.setAttribute("download", `Training_Report_${user.name}_${user.surname}_${dateStr}.csv`);
   link.style.visibility = "hidden";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 }
+
 
 // ----------------- GUI ------------------------
 
@@ -1575,14 +1622,12 @@ function addGUI() {
 
     // guiCam.add( guiObject, 'value1', 1, textureCount, 1 ).name('Texture');
     // guiCam.add( guiObject, 'value2', 0, 1 ).name('Box Brightness');
-    guiCam.add(guiObject, "value3", 0, 10).name("Sahne Parlaklığı");
-    // guiCam.add( guiObject, 'value4', 0, 1 ).name('Camera Damping');
-    guiCam.addColor(guiObject, "color", 255).name("Zemin Rengi");
-    guiCam.add(guiObject, "fireBoolean").name("🔥 Yangın");
-    guiCam.add(guiObject, "smokeBoolean").name("💨 Duman");
-    // Yangın söndürücü kontrolü kaldırıldı - artık kola tıklayarak aktif edilecek
-    // guiCam.add(guiObject, "feBoolean").name("🧯 Yangın Söndürücü");
-    guiCam.add(guiObject, "pauseBoolean").name("⏸ Duraklat");
+    guiCam.add(guiObject, "value3", 0, 10).name("Scene Brightness");
+    guiCam.addColor(guiObject, "color", 255).name("Floor Color");
+    guiCam.add(guiObject, "fireBoolean").name("🔥 Fire");
+    guiCam.add(guiObject, "smokeBoolean").name("💨 Smoke");
+    guiCam.add(guiObject, "pauseBoolean").name("⏸ Pause");
+
 
     gui.onChange((event) => {
       console.log(event.property);
@@ -1645,15 +1690,23 @@ function animate() {
   renderer.render(scene, camera);
 
 
-  // Durum güncelleme
-  // Havalandırma Etkisi
+  // Status Update
+  // Ventilation Effect
   if (timerStarted && window.gasSystem) {
     airSources.forEach(source => {
       if (source.active) {
-        window.gasSystem.applyAirflow(source.pos, source.direction, 0.5);
+        window.gasSystem.applyAirflow(source.pos, 0.6);
+        
+        // Rotate fan blades if any
+        source.mesh.traverse((child) => {
+          if (child.isMesh && (child.name.toLowerCase().includes("blade") || child.name.toLowerCase().includes("fan"))) {
+            child.rotation.x += 0.5;
+          }
+        });
       }
     });
   }
+
 
 
   // Zamanlayıcıyı göster (sadece senaryo devam ederken)
@@ -1661,7 +1714,8 @@ function animate() {
     const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
     const timerDiv = document.getElementById("timer");
     if (timerDiv) {
-      timerDiv.textContent = `⏱️ Geçen Süre: ${elapsedTime}s`;
+      timerDiv.textContent = `⏱️ Elapsed Time: ${elapsedTime}s`;
+
 
       // Renk değişimi - süreye göre
       if (elapsedTime < 10) {
@@ -1771,38 +1825,39 @@ function sleep(ms) {
 }
 
 async function runRoomTour() {
-  console.log("🎬 Otomatik oda turu başlıyor...");
+  console.log("🎬 Automated room tour starting...");
 
-  // Kontrolleri kapalı tut
+  // Keep controls locked
   if (controls) controls.unlock();
 
-  const initialPos = new THREE.Vector3(0, 1.6, 2.0); // Başlangıç
-  const centerPos = new THREE.Vector3(0, 1.6, 0.5); // Merkeze yakın
+  const initialPos = new THREE.Vector3(0, 1.6, 2.0);
+  const centerPos = new THREE.Vector3(0, 1.6, 0.5);
 
   const targets = [
     {
-      // 1. Bilgisayar ve Gaz Sızıntısı Kaynağı
+      // 1. Computer and Gas Leak Source
       pos: centerPos,
       look: new THREE.Vector3(0, 1.0, -1.8),
-      text: "💻 Gaz sızıntısı bu bilgisayardan kaynaklanıyor. Hızla odaya yayılıyor!",
+      text: "💻 A gas leak has started from this computer due to a technical failure!",
       wait: 3500,
     },
     {
-      // 2. Havalandırma Kaynakları
+      // 2. Ventilation Sources
       pos: new THREE.Vector3(0, 1.6, 0.5),
-      look: new THREE.Vector3(-2.4, 1.5, 0),
-      text: "🌬️ Duvarlardaki havalandırma ünitelerini kullanarak gazı dışarı atmalısınız.",
+      look: new THREE.Vector3(-2.4, 1.8, 0),
+      text: "🌬️ Use the ventilation fans on the walls to suck the gas out of the room.",
       wait: 3500,
     },
     {
-      // 3. Çıkış Kapısı
+      // 3. Exit Door
       pos: new THREE.Vector3(0, 1.6, 0),
       look: new THREE.Vector3(0, 1.5, 3.0),
-      text: "🚪 Tehlike anında sakin olun ve en kısa sürede alanı tahliye edin.",
+      text: "🚪 In case of danger, stay calm and evacuate the area immediately.",
       wait: 3500,
     },
 
   ];
+
 
   for (const target of targets) {
     showTourMessage(target.text);
@@ -1810,9 +1865,10 @@ async function runRoomTour() {
     await sleep(target.wait); // Bekle
   }
 
-  // Başa dön
+  // Back to start
   hideTourMessage();
-  showTourMessage("✅ Simülasyon Başlıyor! Hazır olun...", 2000);
+  showTourMessage("✅ Simulation Starting! Get ready...", 2000);
+
 
   // Başlangıç pozisyonuna dön
   await tweenCameraLookAt(initialPos, new THREE.Vector3(0, 1.6, -2.0), 1500);
@@ -1880,14 +1936,15 @@ function updateInteraction() {
       if (intersects[0].distance < 3.0) { // 3 metre etkileşim mesafesi
         if (object.name === "Door") {
           foundInteractable = object;
-          const actionText = window.isDoorOpen ? "KAPATMAK" : "AÇMAK";
-          hintText = `🚪 KAPIYI ${actionText} İÇİN [E]`;
+          const actionText = window.isDoorOpen ? "CLOSE" : "OPEN";
+          hintText = `🚪 PRESS [E] TO ${actionText} DOOR`;
         } else if (object.name.includes("AirSource")) {
           foundInteractable = object;
           const source = airSources.find(s => s.mesh.name === object.name);
-          const actionText = source && source.active ? "KAPATMAK" : "AÇMAK";
-          hintText = `🌬️ HAVALANDIRMAYI ${actionText} İÇİN [E]`;
+          const actionText = source && source.active ? "STOP" : "START";
+          hintText = `🌬️ PRESS [E] TO ${actionText} VENTILATION`;
         }
+
       }
 
 

@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <title>🌬️ Gaz Kaçağı ve Havalandırma Simülatörü - 3D</title>
+  <title>🌬️ Gas Leak & Ventilation Simulator - 3D</title>
 
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
@@ -11,7 +11,7 @@
 
 <body>
   <div id="ui-container">
-    <!-- Crosshair / Nişangah -->
+    <!-- Crosshair -->
     <div id="crosshair" style="
           position: fixed;
           top: 50%;
@@ -28,29 +28,28 @@
           display: none;
         "></div>
     <div id="title">
-      <h1>🌬️ Gaz Kaçağı ve Havalandırma Simülatörü - 3D</h1>
+      <h1>🌬️ Gas Leak & Ventilation Simulator - 3D</h1>
     </div>
 
 
     <div id="instructions" class="collapsed">
       <h3 id="instructionsToggle" style="cursor: pointer; user-select: none; margin-bottom: 0">
-        📋 Senaryo:
+        📋 Scenario:
         <span id="toggleIcon" style="float: right; font-size: 14px">▼</span>
       </h3>
       <div id="instructionsContent">
         <p style="font-style: italic; color: #00ff00">
-          Ofisteki bir bilgisayarda teknik bir arıza nedeniyle
-          <strong>gaz sızıntısı</strong> başladı!
+          A <strong>gas leak</strong> has started in the office due to a technical failure!
         </p>
-        <h4>Ne Yapacaksınız?</h4>
+        <h4>What to do?</h4>
         <p>
-          <strong>1.</strong> 🌬️ Odadaki havalandırma kaynaklarını (Air Sources) bulun.
+          <strong>1.</strong> 🌬️ Find the ventilation sources (Fans) in the room.
         </p>
-        <p><strong>2.</strong> 🖱️ Kaynaklara yaklaşın ve <strong>[ E ]</strong> tuşuna basarak havalandırmayı aktif edin.</p>
-        <p><strong>3.</strong> 🛡️ Gazın dağılmasını sağlayarak odayı temizleyin.
+        <p><strong>2.</strong> 🖱️ Approach the sources and press <strong>[ E ]</strong> to activate ventilation.</p>
+        <p><strong>3.</strong> 🛡️ Clear the room by dispersing the gas.
         </p>
         <p>
-          <strong>DİKKAT:</strong> Gaz yoğunluğu arttıkça görüş mesafeniz azalabilir!
+          <strong>CAUTION:</strong> Visibility may decrease as gas density increases!
         </p>
       </div>
     </div>
@@ -71,10 +70,10 @@
           display: none;
           z-index: 100;
         ">
-      ⏱️ Geçen Süre: 0.0s
+      ⏱️ Elapsed Time: 0.0s
     </div>
 
-    <!-- Kontrol Bilgilendirme Ekranı -->
+    <!-- Control Information Screen -->
     <div id="controls-intro" style="
           position: fixed;
           top: 50%;
@@ -86,46 +85,45 @@
           padding: 40px;
           color: white;
           z-index: 200;
-          display: none; /* JS ile açılacak */
+          display: none;
           text-align: center;
           max-width: 600px;
           width: 90%;
           box-shadow: 0 0 50px rgba(0,0,0,0.8);
         ">
-      <h2 style="color: #4caf50; font-size: 32px; margin-bottom: 30px; text-transform: uppercase;">🎮 Simülasyon
-        Kontrolleri</h2>
+      <h2 style="color: #4caf50; font-size: 32px; margin-bottom: 30px; text-transform: uppercase;">🎮 Simulation Controls</h2>
 
       <div style="display: flex; justify-content: space-around; margin-bottom: 40px; flex-wrap: wrap; gap: 20px;">
         <!-- WASD -->
         <div style="text-align: center;">
           <div style="font-size: 40px; margin-bottom: 10px;">⌨️</div>
           <div style="font-weight: bold; color: #ffaa00; font-size: 24px;">W A S D</div>
-          <div style="color: #aaa;">Hareket Et</div>
+          <div style="color: #aaa;">Move Around</div>
         </div>
 
         <!-- MOUSE -->
         <div style="text-align: center;">
           <div style="font-size: 40px; margin-bottom: 10px;">🖱️</div>
           <div style="font-weight: bold; color: #ffaa00; font-size: 24px;">MOUSE</div>
-          <div style="color: #aaa;">Çevreyi İncele</div>
+          <div style="color: #aaa;">Look Around</div>
         </div>
 
         <!-- E KEY -->
         <div style="text-align: center;">
           <div style="font-size: 40px; margin-bottom: 10px;">👉</div>
-          <div style="font-weight: bold; color: #ffaa00; font-size: 24px;">[ E ] TUŞU</div>
-          <div style="color: #aaa;">Havalandırmayı Aç / Kapat</div>
+          <div style="font-weight: bold; color: #ffaa00; font-size: 24px;">[ E ] KEY</div>
+          <div style="color: #aaa;">Toggle Ventilation</div>
         </div>
       </div>
 
 
       <div
         style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-bottom: 30px; font-style: italic;">
-        <p>💡 İpucu: Nesnelerin üzerine gelince ipuçları görünecektir.</p>
+        <p>💡 Tip: Look at objects to see interaction hints.</p>
       </div>
 
       <div style="margin-bottom: 30px; display: flex; gap: 15px; justify-content: center;">
-        <input type="text" id="userName" placeholder="Adınız" style="
+        <input type="text" id="userName" placeholder="First Name" style="
           padding: 15px;
           border-radius: 10px;
           border: 2px solid #4caf50;
@@ -134,7 +132,7 @@
           font-size: 16px;
           width: 45%;
         ">
-        <input type="text" id="userSurname" placeholder="Soyadınız" style="
+        <input type="text" id="userSurname" placeholder="Last Name" style="
           padding: 15px;
           border-radius: 10px;
           border: 2px solid #4caf50;
@@ -156,11 +154,11 @@
             cursor: pointer;
             transition: all 0.3s;
           " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-        ✅ Kullanımı Anladım
+        ✅ I Understand
       </button>
     </div>
 
-    <!-- Senaryo Başlat Butonu -->
+    <!-- Start Scenario Button -->
     <div id="startScenarioBtn" style="
           position: fixed;
           top: 45%;
@@ -183,7 +181,7 @@
             transition: all 0.3s ease;
             text-transform: uppercase;
           " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-        ▶️ Senaryoyu Başlat
+        ▶️ Start Scenario
       </button>
     </div>
 
@@ -207,14 +205,14 @@
           box-shadow: 0 0 30px rgba(255, 170, 0, 0.8);
         "></div>
 
-    <div id="quakeStatus">Gaz Durumu: Beklemede</div>
+    <div id="quakeStatus">Gas Status: Standby</div>
 
 
-    <div id="info">Web Tabanlı 3D Gaz Kaçağı Simülasyonu | ISG Eğitimi</div>
+    <div id="info">Web-Based 3D Gas Leak Simulation | HSE Training</div>
 
   </div>
 
-  <!-- Sonuç Ekranı -->
+  <!-- Result Screen -->
   <div id="resultScreen" style="
         position: fixed;
         top: 0;
@@ -235,7 +233,7 @@
           border: 3px solid #4caf50;
         ">
       <h1 id="resultTitle" style="text-align: center; font-size: 32px; margin-bottom: 20px">
-        Sonuç
+        Simulation Results
       </h1>
 
       <p id="resultText" style="
@@ -269,7 +267,7 @@
               cursor: pointer;
               transition: transform 0.2s;
             " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-          🔄 Tekrar Dene
+          🔄 Try Again
         </button>
       </div>
 
@@ -281,13 +279,13 @@
             border-radius: 5px;
             color: #ddd;
           ">
-        <h4 style="color: #4caf50">📚 Öğrenilenler:</h4>
+        <h4 style="color: #4caf50">📚 Key Takeaways:</h4>
         <ul style="line-height: 1.8">
           <li>
-            Gaz kaçağı durumunda havalandırma sistemlerini aktif ederek gaz yoğunluğunu düşürmelisiniz.
+            In case of a gas leak, reduce gas density by activating ventilation systems.
           </li>
-          <li>Gazın yayılım yönünü takip ederek güvenli bölgeleri belirleyin.</li>
-          <li>Tehlikeli durumlarda hızlı müdahale hayat kurtarır.</li>
+          <li>Follow the gas dispersion direction to identify safe zones.</li>
+          <li>Quick intervention in dangerous situations saves lives.</li>
         </ul>
       </div>
 
@@ -298,7 +296,8 @@
       {
         "imports": {
           "three": "../build/three.module.js",
-          "three/addons/": "./jsm/"
+          "three/addons/": "./jsm/",
+          "three/examples/jsm/": "./jsm/"
         }
       }
     </script>
@@ -306,53 +305,12 @@
   <script type="module" src="/main.js"></script>
 
   <script>
-    // Global fonksiyonlar
-    window.activateAlarm = function () {};
-
-    // Senaryo penceresi açılır-kapanır özelliği
-    document.addEventListener("DOMContentLoaded", function () {
-      const instructionsDiv = document.getElementById("instructions");
-      const toggleButton = document.getElementById("instructionsToggle");
-      const toggleIcon = document.getElementById("toggleIcon");
-
-      if (toggleButton && instructionsDiv) {
-        toggleButton.addEventListener("click", function () {
-          instructionsDiv.classList.toggle("collapsed");
-        });
-      }
+    // Collapsible instructions
+    document.getElementById('instructionsToggle').addEventListener('click', function () {
+      const instr = document.getElementById('instructions');
+      instr.classList.toggle('collapsed');
+      document.getElementById('toggleIcon').textContent = instr.classList.contains('collapsed') ? '▼' : '▲';
     });
-
-    // Giriş Kontrolü ve Başlatma
-    window.validateAndStart = function () {
-      const name = document.getElementById("userName").value.trim();
-      const surname = document.getElementById("userSurname").value.trim();
-
-      if (!name || !surname) {
-        alert("Lütfen Ad ve Soyad alanlarını doldurunuz!");
-        return;
-      }
-
-      // Bilgileri sakla
-      window.userData = {
-        name: name,
-        surname: surname,
-        startTime: new Date().toLocaleString()
-      };
-
-      // Ekranı Geç ve Oda Turunu Başlat
-      const controlsIntro = document.getElementById("controls-intro");
-
-      if (controlsIntro) controlsIntro.style.display = "none";
-
-      // Oda turunu otomatik başlat
-      if (window.fireSimulation && window.fireSimulation.runRoomTour) {
-        window.fireSimulation.runRoomTour();
-      } else {
-        // Fallback (eğer fonksiyon yoksa eski davranış)
-        const startBtn = document.getElementById("startScenarioBtn");
-        if (startBtn) startBtn.style.display = "block";
-      }
-    };
   </script>
 </body>
 

@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 
 /**
- * GasDispersionSystem - Gaz Yayılım Sistemi
- * Odanın bilgisayarından başlayan ve zamanla tüm odayı dolduran gaz parçacıkları oluşturur.
+ * GasDispersionSystem - Gas Dispersion System
+ * Creates gas particles that start from the computer and slowly fill the room.
  */
 export class GasDispersionSystem {
     constructor(scene, startPosition) {
         this.scene = scene;
         this.startPosition = startPosition ? startPosition.clone() : new THREE.Vector3(0, 1.0, -1.8);
-        this.particleCount = 5000;
+        this.particleCount = 6000; // Slightly reduced for better performance and less density
         this.particles = [];
         this.isStarted = false;
         
@@ -18,23 +18,18 @@ export class GasDispersionSystem {
         this.sizes = new Float32Array(this.particleCount);
         
         for (let i = 0; i < this.particleCount; i++) {
-            this.positions[i * 3] = this.startPosition.x;
-            this.positions[i * 3 + 1] = this.startPosition.y;
-            this.positions[i * 3 + 2] = this.startPosition.z;
+            this.resetParticle(i);
             
-            this.opacities[i] = 0; 
-            this.sizes[i] = Math.random() * 0.4 + 0.2;
-            
-            this.particles.push({
+            this.particles[i] = {
                 velocity: new THREE.Vector3(
                     (Math.random() - 0.5) * 0.02,
                     (Math.random() - 0.2) * 0.015, 
                     (Math.random() - 0.5) * 0.02
                 ),
-                startTime: Math.random() * 5,
+                startTime: Math.random() * 10,
                 active: false,
                 externalForce: new THREE.Vector3(0, 0, 0)
-            });
+            };
         }
         
         this.geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
@@ -44,9 +39,9 @@ export class GasDispersionSystem {
         this.material = new THREE.ShaderMaterial({
             transparent: true,
             depthWrite: false,
-            blending: THREE.AdditiveBlending,
+            blending: THREE.NormalBlending,
             uniforms: {
-                color: { value: new THREE.Color(0x00ff00) }, // Canlı yeşil
+                color: { value: new THREE.Color(0x007733) }, // Slightly lighter and more vibrant green
             },
             vertexShader: `
                 attribute float opacity;
@@ -66,43 +61,67 @@ export class GasDispersionSystem {
                     float dist = distance(gl_PointCoord, vec2(0.5));
                     if (dist > 0.5) discard;
                     float alpha = (1.0 - smoothstep(0.1, 0.5, dist)) * vOpacity;
-                    gl_FragColor = vec4(color, alpha * 0.6);
+                    gl_FragColor = vec4(color, alpha * 0.6); // Slightly lower alpha for less density
                 }
             `
         });
         
         this.points = new THREE.Points(this.geometry, this.material);
         this.points.name = "GasParticles";
+        this.points.frustumCulled = false;
         this.scene.add(this.points);
         
         this.elapsedTime = 0;
+    }
+
+    resetParticle(i) {
+        this.positions[i * 3] = this.startPosition.x + (Math.random() - 0.5) * 0.1;
+        this.positions[i * 3 + 1] = this.startPosition.y + (Math.random() - 0.5) * 0.1;
+        this.positions[i * 3 + 2] = this.startPosition.z + (Math.random() - 0.5) * 0.1;
+        this.opacities[i] = 0;
+        this.sizes[i] = Math.random() * 0.4 + 0.2; // Slightly smaller particles
+        
+        if (this.particles[i]) {
+            this.particles[i].velocity.set(
+                (Math.random() - 0.5) * 0.02,
+                (Math.random() - 0.2) * 0.015,
+                (Math.random() - 0.5) * 0.02
+            );
+            this.particles[i].active = false;
+            this.particles[i].startTime = this.elapsedTime + Math.random() * 2;
+        }
     }
 
     start() {
         this.isStarted = true;
     }
 
-    applyAirflow(sourcePos, direction, strength) {
+    applyAirflow(sourcePos, strength) {
         if (!this.isStarted) return;
-        
-        const dir = direction.clone().normalize();
         
         for (let i = 0; i < this.particleCount; i++) {
             const p = this.particles[i];
             if (!p.active) continue;
             
-            const currentPos = new THREE.Vector3(
-                this.positions[i * 3],
-                this.positions[i * 3 + 1],
-                this.positions[i * 3 + 2]
-            );
+            const px = this.positions[i * 3];
+            const py = this.positions[i * 3 + 1];
+            const pz = this.positions[i * 3 + 2];
             
-            // Kaynağa yakınlık kontrolü (Havalandırma etkisi mesafe ile azalır)
-            const dist = currentPos.distanceTo(sourcePos);
-            const influence = Math.max(0, 1.0 - dist / 5.0); // 5 metre etki alanı
+            const dx = sourcePos.x - px;
+            const dy = sourcePos.y - py;
+            const dz = sourcePos.z - pz;
+            const distSq = dx * dx + dy * dy + dz * dz;
+            const dist = Math.sqrt(distSq);
             
-            if (influence > 0) {
-                p.externalForce.add(dir.clone().multiplyScalar(strength * influence * 0.1));
+            if (dist < 6.0) { // Slightly larger suction radius
+                const force = (1.0 - dist / 6.0) * strength;
+                p.externalForce.x += (dx / dist) * force * 0.3;
+                p.externalForce.y += (dy / dist) * force * 0.3;
+                p.externalForce.z += (dz / dist) * force * 0.3;
+                
+                if (dist < 0.6) { // Slightly larger cleanup radius
+                    this.resetParticle(i);
+                }
             }
         }
     }
@@ -122,43 +141,39 @@ export class GasDispersionSystem {
             }
             
             if (p.active) {
-                // Hız ve kuvvet uygulama
                 p.velocity.add(p.externalForce);
-                p.externalForce.multiplyScalar(0.9); // Kuvveti zamanla sönümle
+                p.externalForce.multiplyScalar(0.8);
                 
                 positions[i * 3] += p.velocity.x;
                 positions[i * 3 + 1] += p.velocity.y;
                 positions[i * 3 + 2] += p.velocity.z;
                 
-                // Türbülans
-                p.velocity.x += (Math.random() - 0.5) * 0.001;
-                p.velocity.y += (Math.random() - 0.5) * 0.001;
-                p.velocity.z += (Math.random() - 0.5) * 0.001;
+                p.velocity.x += (Math.random() - 0.5) * 0.0015;
+                p.velocity.y += (Math.random() - 0.5) * 0.0015;
+                p.velocity.z += (Math.random() - 0.5) * 0.0015;
                 
-                // Hava direnci (yavaşlatma)
-                p.velocity.multiplyScalar(0.99);
+                p.velocity.multiplyScalar(0.97);
                 
-                // Görünürlük
-                if (opacities[i] < 0.6) {
+                // Max opacity reduced to 0.4 for better visibility through gas
+                if (opacities[i] < 0.4) {
                     opacities[i] += 0.05 * deltaTime;
                 }
                 
-                // Sınırlar
                 const limitX = 2.4;
                 const limitZ = 2.4;
                 const limitY = 2.9;
                 
                 if (Math.abs(positions[i * 3]) > limitX) {
                     positions[i * 3] = Math.sign(positions[i * 3]) * limitX;
-                    p.velocity.x *= -0.5;
+                    p.velocity.x *= -0.2;
                 }
                 if (positions[i * 3 + 1] < 0 || positions[i * 3 + 1] > limitY) {
                     positions[i * 3 + 1] = Math.max(0, Math.min(positions[i * 3 + 1], limitY));
-                    p.velocity.y *= -0.5;
+                    p.velocity.y *= -0.2;
                 }
                 if (Math.abs(positions[i * 3 + 2]) > limitZ) {
                     positions[i * 3 + 2] = Math.sign(positions[i * 3 + 2]) * limitZ;
-                    p.velocity.z *= -0.5;
+                    p.velocity.z *= -0.2;
                 }
             }
         }
