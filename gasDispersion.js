@@ -96,7 +96,7 @@ export class GasDispersionSystem {
                 (Math.random() - 0.5) * 0.02
             );
             this.particles[i].active = false;
-            this.particles[i].startTime = this.elapsedTime + Math.random() * 2;
+            this.particles[i].startTime = this.elapsedTime + Math.random() * 0.5; // Çok daha hızlı çıkacak
         }
     }
 
@@ -126,13 +126,13 @@ export class GasDispersionSystem {
             const distSq = dx * dx + dy * dy + dz * dz;
             const dist = Math.sqrt(distSq);
             
-            if (dist < 10.0) { // Larger suction radius
-                const force = (1.0 - dist / 10.0) * strength;
-                p.externalForce.x += (dx / dist) * force * 0.5;
-                p.externalForce.y += (dy / dist) * force * 0.5;
-                p.externalForce.z += (dz / dist) * force * 0.5;
+            if (dist < 15.0) {
+                const force = (1.0 - dist / 15.0) * strength;
+                p.externalForce.x += (dx / dist) * force * 0.03; // Çok daha yavaş süzülecek
+                p.externalForce.y += (dy / dist) * force * 0.03;
+                p.externalForce.z += (dz / dist) * force * 0.03;
                 
-                if (dist < 1.2) { // Particle disappears when inside vent
+                if (dist < 0.4) { // Kaynağa tam girdiğinde yok ol
                     this.resetParticle(i);
                 }
             }
@@ -155,7 +155,7 @@ export class GasDispersionSystem {
             
             if (p.active) {
                 p.velocity.add(p.externalForce);
-                p.externalForce.multiplyScalar(0.6); // Stronger suction damping
+                p.externalForce.multiplyScalar(0.95); // Yavaşça sönümlensin
                 
                 positions[i * 3] += p.velocity.x;
                 positions[i * 3 + 1] += p.velocity.y;
@@ -168,16 +168,12 @@ export class GasDispersionSystem {
                 p.velocity.multiplyScalar(0.95);
                 
                 if (opacities[i] < 0.15) {
-                    opacities[i] += 0.03 * deltaTime;
+                    opacities[i] += 0.06 * deltaTime; // Daha hızlı görünür olacak
                 }
                 
-                // If leaking stopped, fade out particles that are not near vents
-                if (!this.isLeaking && p.externalForce.lengthSq() < 0.001) {
-                    opacities[i] -= 0.05 * deltaTime;
-                    if (opacities[i] <= 0) {
-                        p.active = false;
-                    }
-                }
+                // FADE OUT MANTIĞI KALDIRILDI: Gaz yavaşça emilecek.
+
+
 
                 const limitX = 2.45;
                 const limitZ = 2.45;

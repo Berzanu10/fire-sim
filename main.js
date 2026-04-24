@@ -292,12 +292,12 @@ const REALISTIC_MODELS = {
   ventilationFan: {
     file: "ventilation_fan.glb",
     position: { x: 0, y: 0, z: 0 },
-    scale: { x: 10.0, y: 10.0, z: 10.0 }, 
+    scale: { x: 10.0, y: 10.0, z: 10.0 },
     rotation: { x: 0, y: 0, z: 0 },
   },
   // Window - Try FBX or fallback
   window: {
-    file: "Window_AnimatedV1.fbx", 
+    file: "Window_AnimatedV1.fbx",
     position: { x: 0, y: 0, z: 0 },
     scale: { x: 0.01, y: 0.01, z: 0.01 },
     rotation: { x: 0, y: 0, z: 0 },
@@ -340,14 +340,14 @@ function loadModel(key) {
         model.scale.set(config.scale.x, config.scale.y, config.scale.z);
         model.position.set(config.position.x, config.position.y, config.position.z);
         model.rotation.set(config.rotation.x, config.rotation.y, config.rotation.z);
-        
+
         model.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
           }
         });
-        
+
         loadedModels[key] = model;
         resolve(model);
       },
@@ -738,36 +738,44 @@ async function createRoom() {
   windowSide2.position.set(2.25, 1.8, roomSize / 2);
   room.add(windowSide2);
 
-  // WINDOW MODEL
-  if (loadedModels.window) {
-    const windowModel = loadedModels.window.clone();
-    windowModel.position.set(1.5, 1.7, roomSize / 2);
-    windowModel.scale.set(150, 150, 150); // Massive scale for FBX fallback
-    windowModel.name = "Window";
-    windowModel.traverse(child => {
-      if (child.isMesh) {
-        child.name = "Window";
-        child.material.transparent = true;
-        child.material.opacity = 0.5;
-      }
-    });
-    room.add(windowModel);
-    window.officeWindow = windowModel;
-  } else {
-    // Fallback Window
-    const windowGeo = new THREE.BoxGeometry(1.0, 1.2, 0.05);
-    const windowMat = new THREE.MeshStandardMaterial({ 
-      color: 0x88ccff, 
-      transparent: true, 
-      opacity: 0.3 
-    });
-    const fallbackWindow = new THREE.Mesh(windowGeo, windowMat);
-    fallbackWindow.position.set(1.5, 1.7, roomSize / 2);
-    fallbackWindow.name = "Window";
-    room.add(fallbackWindow);
-    window.officeWindow = fallbackWindow;
-  }
+  // CUSTOM HINGED WINDOW
+  const windowWidth = 1.0;
+  const windowHeight = 1.2;
+  const windowThick = 0.05;
 
+  // Window Group (Hinge)
+  const windowGroup = new THREE.Group();
+  // Hinge placed at the left edge of the hole
+  windowGroup.position.set(1.0, 1.6, roomSize / 2);
+
+  // Frame/Glass
+  const windowGeo = new THREE.BoxGeometry(windowWidth, windowHeight, windowThick);
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0x88ccff,
+    transparent: true,
+    opacity: 0.4,
+    roughness: 0.1,
+    metalness: 0.8
+  });
+  const customWindow = new THREE.Mesh(windowGeo, windowMat);
+
+  // Position relative to hinge (shift right by half width)
+  customWindow.position.set(windowWidth / 2, 0, 0);
+  customWindow.name = "Window"; // Raycaster target
+
+  // Handle (optional)
+  const winHandleGeo = new THREE.SphereGeometry(0.04);
+  const winHandleMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+  const winHandle = new THREE.Mesh(winHandleGeo, winHandleMat);
+  winHandle.position.set(windowWidth - 0.1, 0, 0.05);
+  winHandle.name = "Window";
+  customWindow.add(winHandle);
+
+  windowGroup.add(customWindow);
+  room.add(windowGroup);
+
+  window.officeWindowGroup = windowGroup;
+  window.isWindowOpen = false;
   // Üst Parça (Kapı üstü)
   const doorHeight = 2.2;
   const frontTopGeo = new THREE.BoxGeometry(1.0, wallHeight - doorHeight, wallThickness);
@@ -1125,18 +1133,21 @@ function createProceduralHands() {
 
   const leftHand = createHand(false);
   const rightHand = createHand(true);
-  
+
   handsGroup.add(leftHand);
   handsGroup.add(rightHand);
 
   // Add multimeter to right hand
   if (loadedModels.multimeter) {
     const multi = loadedModels.multimeter.clone();
-    multi.position.set(0.25, -0.2, -0.4);
-    multi.rotation.set(-0.5, 0, 0);
+    // Position it so it's in front of the camera, clearly visible
+    multi.position.set(0.2, -0.15, -0.4);
+    // Rotate so the screen (face) is pointing towards the camera (+Z)
+    multi.rotation.set(1, 50, 0);
     multi.scale.set(0.1, 0.1, 0.1);
     handsGroup.add(multi);
   }
+
 
   camera.add(handsGroup);
 }
@@ -1449,23 +1460,24 @@ function createElectricalPanel() {
 }
 
 function createAirSources() {
-  const source1Pos = new THREE.Vector3(-2.48, 1.8, 0); // Left wall
+  const source1Pos = new THREE.Vector3(-2.3, 1.8, 0); // Odanın içine doğru çekildi (-2.48'den -2.3'e)
 
   const createFan = (pos, name) => {
     const group = new THREE.Group();
     group.position.copy(pos);
     group.name = name;
-    
+
     if (loadedModels.ventilationFan) {
       const fanModel = loadedModels.ventilationFan.clone();
       fanModel.name = name;
-      // Corrected rotation: flip 180 from previous to face the room correctly
-      fanModel.rotation.set(0, Math.PI / 2, 0);
+      // Explicit rotation to be perfectly flush with left wall
+      fanModel.rotation.set(0, Math.PI / 3, 0);
       fanModel.scale.set(10.0, 10.0, 10.0);
 
 
 
-      
+
+
       fanModel.traverse(child => {
         if (child.isMesh) {
           child.name = name;
@@ -1497,7 +1509,7 @@ function handleInteraction(object) {
   } else if (object.name === "Window") {
     window.isWindowOpen = !window.isWindowOpen;
     showMessage(window.isWindowOpen ? "🪟 Window OPENED" : "🪟 Window CLOSED", 1000);
-    
+
     // Window effect
     if (window.isWindowOpen && window.gasSystem) {
       window.gasSystem.stopLeaking();
@@ -1510,7 +1522,7 @@ function handleInteraction(object) {
     if (actualSource) {
       actualSource.active = !actualSource.active;
       showMessage(actualSource.active ? "🌬️ Ventilation ON" : "🔇 Ventilation OFF", 1000);
-      
+
       if (window.gasSystem) {
         const anyActive = airSources.some(s => s.active) || window.isWindowOpen;
         if (anyActive) {
@@ -1533,7 +1545,7 @@ function handleInteraction(object) {
 
 
 
-window.validateAndStart = function() {
+window.validateAndStart = function () {
   const name = document.getElementById("userName").value.trim();
   const surname = document.getElementById("userSurname").value.trim();
 
@@ -1770,13 +1782,24 @@ function animate() {
 
   renderer.render(scene, camera);
 
+  // Window Animation
+  if (window.officeWindowGroup) {
+    const targetWinRotation = window.isWindowOpen ? Math.PI / 3 : 0;
+    window.officeWindowGroup.rotation.y += (targetWinRotation - window.officeWindowGroup.rotation.y) * 0.1;
+  }
+
+  // Door Animation (if not already handled elsewhere)
+  if (window.doorGroup) {
+    const targetDoorRotation = window.isDoorOpen ? -Math.PI / 2 : 0;
+    window.doorGroup.rotation.y += (targetDoorRotation - window.doorGroup.rotation.y) * 0.1;
+  }
 
   // Ventilation Effect
   if (timerStarted && window.gasSystem) {
     airSources.forEach(source => {
       if (source.active) {
         window.gasSystem.applyAirflow(source.pos, 0.6);
-        
+
         // Rotate fan blades if any
         source.mesh.traverse((child) => {
           if (child.isMesh && (child.name.toLowerCase().includes("blade") || child.name.toLowerCase().includes("fan"))) {
@@ -1791,18 +1814,19 @@ function animate() {
       const windowPos = new THREE.Vector3(1.5, 1.6, 2.5);
       window.gasSystem.applyAirflow(windowPos, 0.8);
     }
-    
+
     // Gas Level HUD Logic
+
     const gasSource = new THREE.Vector3(0, 1.0, -1.8);
     const dist = camera.position.distanceTo(gasSource);
     // Max level at 0.5m, zero at 6m
     let gasRate = Math.max(0, Math.min(100, (1 - (dist - 0.5) / 5.5) * 100));
-    
+
     // If leak is stopped, fade the rate
     if (!window.gasSystem.isLeaking) {
       gasRate *= 0.5; // Arbitrary reduction
     }
-    
+
     const gasDisplay = document.getElementById("gas-rate-display");
     if (gasDisplay) {
       gasDisplay.innerText = `GAS RATE: ${Math.floor(gasRate)}%`;
