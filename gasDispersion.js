@@ -166,11 +166,12 @@ export class GasDispersionSystem {
                 positions[i * 3 + 1] += p.velocity.y;
                 positions[i * 3 + 2] += p.velocity.z;
                 
-                p.velocity.x += (Math.random() - 0.5) * 0.0015; // Daha fazla türbülans
-                p.velocity.y += (Math.random() - 0.5) * 0.0015;
-                p.velocity.z += (Math.random() - 0.5) * 0.0015;
+                p.velocity.x += (Math.random() - 0.5) * 0.0005; // Yavaş türbülans
+                p.velocity.y += (Math.random() - 0.5) * 0.0005;
+                p.velocity.z += (Math.random() - 0.5) * 0.0005;
                 
-                p.velocity.multiplyScalar(0.98); // Hızını daha az kaybedecek (Odaya daha çabuk dolacak)
+                p.velocity.multiplyScalar(0.92); // Hızını daha çabuk kaybedecek (Yavaş ilerleyecek)
+
 
                 
                 if (opacities[i] < 0.15) {

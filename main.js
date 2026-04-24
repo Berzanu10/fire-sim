@@ -1504,17 +1504,28 @@ function createAirSources() {
 
 
 function handleInteraction(object) {
+  const checkGasStatus = () => {
+    if (!window.gasSystem) return;
+    const ventActive = airSources.some(s => s.active);
+    const windowActive = window.isWindowOpen;
+    
+    if (ventActive && windowActive) {
+      window.gasSystem.stopLeaking();
+      showMessage("✅ Both ventilations active! Gas leak contained.", 3000);
+    } else if (ventActive || windowActive) {
+      window.gasSystem.start(); // Sızıntı devam etmeli
+      showMessage("⚠️ Only one ventilation active! Open the other to stop the leak.", 3000);
+    } else {
+      window.gasSystem.start(); // İkisi de kapalı, sızıntı devam ediyor
+    }
+  };
+
   if (object.name === "Door") {
     toggleDoor();
   } else if (object.name === "Window") {
     window.isWindowOpen = !window.isWindowOpen;
     showMessage(window.isWindowOpen ? "🪟 Window OPENED" : "🪟 Window CLOSED", 1000);
-
-    // Window effect
-    if (window.isWindowOpen && window.gasSystem) {
-      window.gasSystem.stopLeaking();
-      showMessage("✅ Gas leak contained! Evacuating through window...", 3000);
-    }
+    checkGasStatus();
   } else if (object.name.includes("AirSource") || object.userData.isAirSource) {
     const sourceName = object.userData.sourceName || object.name;
     const actualSource = airSources.find(s => s.mesh.name === sourceName || (s.mesh.children && s.mesh.children.some(c => c.name === sourceName)));
@@ -1522,14 +1533,7 @@ function handleInteraction(object) {
     if (actualSource) {
       actualSource.active = !actualSource.active;
       showMessage(actualSource.active ? "🌬️ Ventilation ON" : "🔇 Ventilation OFF", 1000);
-
-      if (window.gasSystem) {
-        const anyActive = airSources.some(s => s.active) || window.isWindowOpen;
-        if (anyActive) {
-          window.gasSystem.stopLeaking();
-          showMessage("✅ Gas leak contained! Clearing the air...", 3000);
-        }
-      }
+      checkGasStatus();
 
       actualSource.mesh.traverse((child) => {
         if (child.isMesh) {
