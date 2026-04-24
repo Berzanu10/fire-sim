@@ -1469,43 +1469,10 @@ function startScenario() {
   if (crosshair) crosshair.style.display = "block";
 }
 
-
-// Elektriği kes
-function cutElectricity() {
-  window.electricityOn = false;
-
-  // Normal ışıkları kapat
-  if (window.mainLights) {
-    window.mainLights.visible = false;
-  }
-
-  // Acil durum ışıklarını aç
-  if (window.emergencyLights) {
-    window.emergencyLights.visible = true;
-  }
-
-  // Arka plan koyu ama tam karanlık değil; eşyalar orijinal renklerini korusun
-  scene.background = new THREE.Color(0x2a2540);
-  scene.fog = new THREE.Fog(0x2a2540, 5, 14);
-
-  // Ortam ışığı azaldığında malzemeler üzerindeki parlaklık/yansıma dursun
-  scene.traverse((obj) => {
-    if (!obj.isMesh) return;
-    const m = obj.material;
-    if (!m) return;
-    const mats = Array.isArray(m) ? m : [m];
-    mats.forEach((mat) => {
-      if (mat && typeof mat.metalness !== "undefined") mat.metalness = 0;
-      if (mat && typeof mat.roughness !== "undefined") mat.roughness = 0.95;
-    });
-  });
-
-  console.log(
-    "💡 Kaçak akım rölesi devreye girdi! Sadece acil durum ışıkları yanıyor."
-  );
+// Ses sistemi
+function initAudio() {
+  console.log("✓ Ses sistemi hazır");
 }
-
-// Earthquake Logic Functions removed
 
 // Mesaj göster
 function showMessage(message, duration = 4000) {
@@ -1520,131 +1487,25 @@ function showMessage(message, duration = 4000) {
   }
 }
 
-// Durum güncelle
-function updateStatus() {
-  const statusDiv = document.getElementById("fireStatus");
-  if (!statusDiv) return;
-
-  if (!isQuakeActive && !scenarioEnded) {
-    statusDiv.textContent = "Durum: Beklemede";
-    statusDiv.style.color = "#ffff00";
-    statusDiv.style.animation = "none";
-    return;
-  }
-
-  if (scenarioEnded) {
-    statusDiv.textContent = "✅ Deprem Sona Erdi!";
-    statusDiv.style.color = "#00ff00";
-    statusDiv.style.borderColor = "#00ff00";
-    statusDiv.style.animation = "none";
-  } else {
-    statusDiv.textContent = "🌍 DEPREM OLUYOR! ÇÖK-KAPAN-TUTUN (C)";
-    statusDiv.style.color = "#ff4444";
-    statusDiv.style.borderColor = "#ff4444";
-    statusDiv.style.animation = "pulse 0.5s infinite";
-  }
-}
-
-// Senaryo sonu
+// Senaryo sonu (Gaz için özelleştirilebilir)
 function endScenario(result) {
   if (scenarioEnded) return;
 
-  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-
-  // Zamanlayıcıyı ve animasyonları durdur
   scenarioEnded = true;
   timerStarted = false;
-  isQuakeActive = false;
 
   const timerDiv = document.getElementById("timer");
-  if (timerDiv) {
-    timerDiv.style.display = "none";
-  }
+  if (timerDiv) timerDiv.style.display = "none";
 
-  // Sonuç ekranı göster
   const resultDiv = document.getElementById("resultScreen");
-  const resultTitle = document.getElementById("resultTitle");
-  const resultText = document.getElementById("resultText");
-  const scoreText = document.getElementById("scoreText");
-  const timeText = document.getElementById("timeText");
-  const logText = document.getElementById("decisionLog");
+  if (resultDiv) resultDiv.style.display = "block";
 
-  if (!resultDiv) return;
-
-  resultDiv.style.display = "block";
-
-  let title = "";
-  let text = "";
-  let color = "";
-
-  switch (result) {
-    case "success":
-      title = "🎉 BAŞARILI: Güvenli Alana Sığındınız!";
-      text = "Deprem anında doğru pozisyonda ve masa altında kalarak hayatınızı kurtardınız.";
-      color = "#00ff00";
-      break;
-
-    case "failed_standing":
-      title = "❌ BAŞARISIZ: Çökmediniz";
-      text = "Deprem anında ayakta kalmak düşmenize ve yaralanmanıza neden olabilir!";
-      color = "#ff0000";
-      break;
-
-    case "failed_not_under_desk":
-      title = "❌ BAŞARISIZ: Güvenli Alanda Değildiniz";
-      text = "Masanın altına sığınmadığınız için üzerinize eşya düşebilirdi.";
-      color = "#ff0000";
-      break;
-  }
-
-  resultTitle.textContent = title;
-  resultTitle.style.color = color;
-  resultText.textContent = text;
-
-  // Karar geçmişini göster
-  let logHTML = "<h4>Karar Geçmişi:</h4><ul>";
-  decisionLog.forEach((log) => {
-    logHTML += `<li>[${(log.time / 1000).toFixed(1)}s] ${log.description}</li>`;
-  });
-  logHTML += "</ul>";
-  logText.innerHTML = logHTML;
-
-  console.log("=== SENARYO SONU ===");
-  console.log(`Sonuç: ${result}`);
-
-  // Kontrolleri serbest bırak
   if (controls) controls.unlock();
-
-  // CSV Raporunu Otomatik İndir
-  setTimeout(() => {
-    try {
-      const finalResultText = title + " - " + text;
-      exportToCSV(totalTime, userScore, finalResultText);
-      console.log("📊 Rapor indiriliyor...");
-    } catch (e) {
-      console.error("Rapor oluşturma hatası:", e);
-    }
-  }, 500); // 0.5sn bekleme
 }
 
-// Ses sistemi - Web Audio API ile basit alarm sesi
-let audioContext;
-let alarmAudio = null;
-
-// Global alarm durdurma fonksiyonu
-window.stopAlarmSound = function () {
-  if (alarmAudio) {
-    alarmAudio.pause();
-    alarmAudio.currentTime = 0;
-    console.log("🔇 Alarm sesi durduruldu");
-  }
-};
-
-function initAudio() {
-  console.log("✓ Alarm ses sistemi hazır");
-}
 
 // ----------------- CSV EXPORT ------------------------
+
 
 function exportToCSV(totalTime, score, resultText) {
   // Kullanıcı bilgisini al
@@ -1781,93 +1642,8 @@ function animate() {
   }
 
 
-  // --- DEPREM SARSINTISI ---
-  let shakeOffset = new THREE.Vector3();
-  let rollOffset = 0;
-
-  if (isQuakeActive && !scenarioEnded) {
-    quakeTime += deltaTime;
-    
-    // Güvenli alanda olma durumunu kaydet (Sadece masa altı ve çömelik)
-    const isUnderDeskNow = 
-      camera.position.x > -0.5 && camera.position.x < 1.5 &&
-      camera.position.z > -2.5 && camera.position.z < -0.5;
-
-    if (isUnderDeskNow && isCrouched) {
-      window.userIsSafe = true;
-    }
-
-    // Sarsıntı şiddeti (ilk 3 saniye artar, sonra sabit kalır, 20 sn sonra biter)
-    if (quakeTime < 3) {
-      quakeIntensity = quakeTime / 3;
-    } else if (quakeTime > 20) {
-      quakeIntensity = Math.max(0, 1 - (quakeTime - 20) / 5);
-      if (quakeIntensity === 0 && !scenarioEnded) {
-        if (!isCrouched) {
-          endScenario("failed_standing");
-        } else if (!isUnderDeskNow) {
-          endScenario("failed_not_under_desk");
-        } else {
-          endScenario("success");
-        }
-      }
-    } else {
-      quakeIntensity = 1.0;
-    }
-
-    // Eşya Animasyonları
-    if (quakeTime > 1) {
-      if (room) {
-        room.children.forEach(child => {
-          // Saksı bitkisi devriliyor
-          if (child.name && child.name.toLowerCase() === "plant") {
-             child.rotation.x = THREE.MathUtils.lerp(child.rotation.x, Math.PI / 2, 0.05);
-          }
-          // Sandalyeler sadece sarsılıyor
-          if (child.name && child.name.toLowerCase().includes("chair")) {
-             child.rotation.z = (Math.random() - 0.5) * 0.1 * quakeIntensity;
-             child.rotation.x = (Math.random() - 0.5) * 0.1 * quakeIntensity;
-          }
-        });
-      }
-    }
-
-    // Kullanıcı güvendeyse (masa altındaysa) bilgisayarı düşür
-    if (window.userIsSafe || quakeTime > 15) {
-      if (window.computerEquipment) {
-        if (window.computerEquipment.monitor) {
-          window.computerEquipment.monitor.rotation.x = THREE.MathUtils.lerp(window.computerEquipment.monitor.rotation.x, -Math.PI / 2, 0.1);
-          window.computerEquipment.monitor.position.y = THREE.MathUtils.lerp(window.computerEquipment.monitor.position.y, 0.0, 0.1);
-        }
-        if (window.computerEquipment.keyboard) {
-          window.computerEquipment.keyboard.rotation.z = THREE.MathUtils.lerp(window.computerEquipment.keyboard.rotation.z, Math.PI / 4, 0.15);
-          window.computerEquipment.keyboard.position.y = THREE.MathUtils.lerp(window.computerEquipment.keyboard.position.y, 0, 0.15);
-        }
-      }
-    }
-
-    // Kamera Sarsıntısı - Render öncesi offset
-    if (quakeIntensity > 0) {
-      const t = Date.now() * 0.035; // Sarsıntı frekansı (hız)
-      shakeOffset.set(
-        Math.sin(t * 1.1) * 0.125 * quakeIntensity,
-        Math.cos(t * 1.3) * 0.075 * quakeIntensity,
-        Math.sin(t * 0.9) * 0.125 * quakeIntensity
-      );
-      rollOffset = Math.sin(t * 1.5) * 0.04 * quakeIntensity;
-      
-      camera.position.add(shakeOffset);
-      camera.rotation.z += rollOffset;
-    }
-  }
-
   renderer.render(scene, camera);
 
-  // Render bittikten sonra kamerayı eski yerine al ki kalıcı kaymalar (drift) olmasın
-  if (isQuakeActive && quakeIntensity > 0 && !scenarioEnded) {
-    camera.position.sub(shakeOffset);
-    camera.rotation.z -= rollOffset;
-  }
 
   // Durum güncelleme
   // Havalandırma Etkisi
@@ -2005,19 +1781,27 @@ async function runRoomTour() {
 
   const targets = [
     {
-      // 1. Masa ve "Güvenli Alan"
+      // 1. Bilgisayar ve Gaz Sızıntısı Kaynağı
       pos: centerPos,
-      look: new THREE.Vector3(0.7, 0.5, -1.5),
-      text: "🪑 Masanın altı, deprem anında sığınabileceğiniz iyi bir Güvenli Alandır.",
+      look: new THREE.Vector3(0, 1.0, -1.8),
+      text: "💻 Gaz sızıntısı bu bilgisayardan kaynaklanıyor. Hızla odaya yayılıyor!",
       wait: 3500,
     },
     {
-      // 2. Çıkış Kapısı
-      pos: new THREE.Vector3(0, 1.6, 0), // Biraz daha öne gel
-      look: new THREE.Vector3(0, 1.5, 3.0), // Kapıya doğru
-      text: "🚪 Sarsıntı geçtikten ve tehlike bittikten sonra kapıdan çıkıp binayı tahliye edin.",
+      // 2. Havalandırma Kaynakları
+      pos: new THREE.Vector3(0, 1.6, 0.5),
+      look: new THREE.Vector3(-2.4, 1.5, 0),
+      text: "🌬️ Duvarlardaki havalandırma ünitelerini kullanarak gazı dışarı atmalısınız.",
       wait: 3500,
     },
+    {
+      // 3. Çıkış Kapısı
+      pos: new THREE.Vector3(0, 1.6, 0),
+      look: new THREE.Vector3(0, 1.5, 3.0),
+      text: "🚪 Tehlike anında sakin olun ve en kısa sürede alanı tahliye edin.",
+      wait: 3500,
+    },
+
   ];
 
   for (const target of targets) {
@@ -2050,34 +1834,8 @@ async function runRoomTour() {
   }
 }
 
-// Senaryo başlatıcı
-function startScenario() {
-  // Başlat butonunu hemen gizle
-  const startBtn = document.getElementById("startScenarioBtn");
-  if (startBtn) {
-    startBtn.style.display = "none";
-  }
-
-  // İmleci HEMEN kilitle (Tarayıcı politikası gereği, setTimeout içinde olamaz)
-  if (controls && !controls.isLocked) {
-    controls.lock();
-  }
-
-  // Senaryo talimat penceresini otomatik kapat
-  const instructionsDiv = document.getElementById("instructions");
-  if (instructionsDiv && !instructionsDiv.classList.contains("collapsed")) {
-    instructionsDiv.classList.add("collapsed");
-  }
-
-  // Yangın durumu penceresinde uyarı göster
-  const statusDiv = document.getElementById("fireStatus");
-  if (statusDiv) {
-    startScenario();
-  }, 2000);
-}
-
-
 // Global fonksiyonları export et
+
 window.fireSimulation = {
   startScenario: startScenario,
   runRoomTour: runRoomTour,
@@ -2120,6 +1878,8 @@ function updateInteraction() {
 
       // Mesafe kontrolü
       if (intersects[0].distance < 3.0) { // 3 metre etkileşim mesafesi
+        if (object.name === "Door") {
+          foundInteractable = object;
           const actionText = window.isDoorOpen ? "KAPATMAK" : "AÇMAK";
           hintText = `🚪 KAPIYI ${actionText} İÇİN [E]`;
         } else if (object.name.includes("AirSource")) {
@@ -2129,6 +1889,7 @@ function updateInteraction() {
           hintText = `🌬️ HAVALANDIRMAYI ${actionText} İÇİN [E]`;
         }
       }
+
 
     }
   }

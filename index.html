@@ -2,7 +2,8 @@
 <html lang="en">
 
 <head>
-  <title>🌍 Deprem Acil Durum Eğitim Simülatörü - 3D</title>
+  <title>🌬️ Gaz Kaçağı ve Havalandırma Simülatörü - 3D</title>
+
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
   <link type="text/css" rel="stylesheet" href="/styles/style.css" />
@@ -27,8 +28,9 @@
           display: none;
         "></div>
     <div id="title">
-      <h1>🌍 Deprem Acil Durum Eğitim Simülatörü - 3D</h1>
+      <h1>🌬️ Gaz Kaçağı ve Havalandırma Simülatörü - 3D</h1>
     </div>
+
 
     <div id="instructions" class="collapsed">
       <h3 id="instructionsToggle" style="cursor: pointer; user-select: none; margin-bottom: 0">
@@ -36,22 +38,23 @@
         <span id="toggleIcon" style="float: right; font-size: 14px">▼</span>
       </h3>
       <div id="instructionsContent">
-        <p style="font-style: italic; color: #ffaa00">
-          Ofiste çalışırken aniden güçlü bir
-          <strong>deprem (sarsıntı)</strong> başladı!
+        <p style="font-style: italic; color: #00ff00">
+          Ofisteki bir bilgisayarda teknik bir arıza nedeniyle
+          <strong>gaz sızıntısı</strong> başladı!
         </p>
         <h4>Ne Yapacaksınız?</h4>
         <p>
-          <strong>1.</strong> 🏃‍♂️ Hemen güvenli bir alan bulun! (Örn: Sağlam bir masanın altı)
+          <strong>1.</strong> 🌬️ Odadaki havalandırma kaynaklarını (Air Sources) bulun.
         </p>
-        <p><strong>2.</strong> ⬇️ Güvenli alana ulaştığınızda <strong>[ C ]</strong> tuşuna basarak ÇÖKÜN.</p>
-        <p><strong>3.</strong> 🛡️ Sarsıntı bitene kadar hedef alanda çökmüş halde bekleyin (ÇÖK - KAPAN - TUTUN).
+        <p><strong>2.</strong> 🖱️ Kaynaklara yaklaşın ve <strong>[ E ]</strong> tuşuna basarak havalandırmayı aktif edin.</p>
+        <p><strong>3.</strong> 🛡️ Gazın dağılmasını sağlayarak odayı temizleyin.
         </p>
         <p>
-          <strong>DİKKAT:</strong> Sarsıntı anında ayakta kalmak veya düşen nesnelerin (monitör, kitaplık vb.) yakınında durmak risklidir!
+          <strong>DİKKAT:</strong> Gaz yoğunluğu arttıkça görüş mesafeniz azalabilir!
         </p>
       </div>
     </div>
+
 
     <div id="timer" style="
           position: fixed;
@@ -111,16 +114,10 @@
         <div style="text-align: center;">
           <div style="font-size: 40px; margin-bottom: 10px;">👉</div>
           <div style="font-weight: bold; color: #ffaa00; font-size: 24px;">[ E ] TUŞU</div>
-          <div style="color: #aaa;">Etkileşim / Seçim</div>
-        </div>
-
-        <!-- C KEY -->
-        <div style="text-align: center;">
-          <div style="font-size: 40px; margin-bottom: 10px;">⬇️</div>
-          <div style="font-weight: bold; color: #ffaa00; font-size: 24px;">[ C ] TUŞU</div>
-          <div style="color: #aaa;">Çök / Kapan</div>
+          <div style="color: #aaa;">Havalandırmayı Aç / Kapat</div>
         </div>
       </div>
+
 
       <div
         style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-bottom: 30px; font-style: italic;">
@@ -210,9 +207,11 @@
           box-shadow: 0 0 30px rgba(255, 170, 0, 0.8);
         "></div>
 
-    <div id="quakeStatus">Sismik Durum: Beklemede</div>
+    <div id="quakeStatus">Gaz Durumu: Beklemede</div>
 
-    <div id="info">Web Tabanlı 3D Deprem Eğitimi | ISG Simülasyonu</div>
+
+    <div id="info">Web Tabanlı 3D Gaz Kaçağı Simülasyonu | ISG Eğitimi</div>
+
   </div>
 
   <!-- Sonuç Ekranı -->
@@ -285,14 +284,13 @@
         <h4 style="color: #4caf50">📚 Öğrenilenler:</h4>
         <ul style="line-height: 1.8">
           <li>
-            Bina sallanırken dışarı koşmaya çalışmak veya pencerelere yaklaşmak hayati risk taşır.
+            Gaz kaçağı durumunda havalandırma sistemlerini aktif ederek gaz yoğunluğunu düşürmelisiniz.
           </li>
-          <li>Sağlam bir masanın veya sıranın altına girip "ÇÖK-KAPAN-TUTUN" hareketini yapmalısınız.</li>
-          <li>Başınızı ve boynunuzu korumak en öncelikli işlemdir.</li>
-          <li>Sarsıntı geçene kadar hedef güvenli alanda kalmak hayat kurtarır.</li>
-          <li>Düşebilecek ağır eşyalardan (kitaplık, monitör, dolap) uzak durulmalıdır.</li>
+          <li>Gazın yayılım yönünü takip ederek güvenli bölgeleri belirleyin.</li>
+          <li>Tehlikeli durumlarda hızlı müdahale hayat kurtarır.</li>
         </ul>
       </div>
+
     </div>
   </div>
 
