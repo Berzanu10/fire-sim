@@ -8,10 +8,11 @@ export class GasDispersionSystem {
     constructor(scene, startPosition) {
         this.scene = scene;
         this.startPosition = startPosition ? startPosition.clone() : new THREE.Vector3(0, 1.0, -1.8);
-        this.particleCount = 3000;
+        this.particleCount = 8000; // Artırılmış gaz yoğunluğu
         this.particles = [];
         this.isStarted = false;
         this.isLeaking = true; // Added to control source leak
+
         
         this.geometry = new THREE.BufferGeometry();
         this.positions = new Float32Array(this.particleCount * 3);
@@ -62,8 +63,9 @@ export class GasDispersionSystem {
                     float dist = distance(gl_PointCoord, vec2(0.5));
                     if (dist > 0.5) discard;
                     float alpha = (1.0 - smoothstep(0.1, 0.5, dist)) * vOpacity;
-                    gl_FragColor = vec4(color, alpha * 0.3); // Even thinner
+                    gl_FragColor = vec4(color, alpha * 0.6); // Daha belirgin, yoğun yeşil
                 }
+
             `
         });
         
@@ -91,13 +93,14 @@ export class GasDispersionSystem {
         
         if (this.particles[i]) {
             this.particles[i].velocity.set(
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.2) * 0.015,
-                (Math.random() - 0.5) * 0.02
+                (Math.random() - 0.5) * 0.04, // Daha hızlı yayılma
+                (Math.random() - 0.1) * 0.03, // Yukarı doğru güçlü hareket
+                (Math.random() - 0.5) * 0.04
             );
             this.particles[i].active = false;
-            this.particles[i].startTime = this.elapsedTime + Math.random() * 0.5; // Çok daha hızlı çıkacak
+            this.particles[i].startTime = this.elapsedTime + Math.random() * 0.2; // Çok daha hızlı çıkacak (8000 partikül için)
         }
+
     }
 
     start() {
@@ -127,12 +130,14 @@ export class GasDispersionSystem {
             const dist = Math.sqrt(distSq);
             
             if (dist < 15.0) {
-                const force = (1.0 - dist / 15.0) * strength;
-                p.externalForce.x += (dx / dist) * force * 0.03; // Çok daha yavaş süzülecek
-                p.externalForce.y += (dy / dist) * force * 0.03;
-                p.externalForce.z += (dz / dist) * force * 0.03;
+                // Emme kuvveti doğrudan hıza eklenecek ve çok daha küçük olacak (aşırı hızlanmayı önler)
+                const force = (1.0 - dist / 15.0) * strength * 0.0008; 
+                p.velocity.x += (dx / dist) * force;
+                p.velocity.y += (dy / dist) * force;
+                p.velocity.z += (dz / dist) * force;
                 
                 if (dist < 0.4) { // Kaynağa tam girdiğinde yok ol
+
                     this.resetParticle(i);
                 }
             }
@@ -161,11 +166,12 @@ export class GasDispersionSystem {
                 positions[i * 3 + 1] += p.velocity.y;
                 positions[i * 3 + 2] += p.velocity.z;
                 
-                p.velocity.x += (Math.random() - 0.5) * 0.001;
-                p.velocity.y += (Math.random() - 0.5) * 0.001;
-                p.velocity.z += (Math.random() - 0.5) * 0.001;
+                p.velocity.x += (Math.random() - 0.5) * 0.0015; // Daha fazla türbülans
+                p.velocity.y += (Math.random() - 0.5) * 0.0015;
+                p.velocity.z += (Math.random() - 0.5) * 0.0015;
                 
-                p.velocity.multiplyScalar(0.95);
+                p.velocity.multiplyScalar(0.98); // Hızını daha az kaybedecek (Odaya daha çabuk dolacak)
+
                 
                 if (opacities[i] < 0.15) {
                     opacities[i] += 0.06 * deltaTime; // Daha hızlı görünür olacak

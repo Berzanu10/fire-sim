@@ -1815,22 +1815,47 @@ function animate() {
       window.gasSystem.applyAirflow(windowPos, 0.8);
     }
 
-    // Gas Level HUD Logic
-
+    // HUD Logic: Multimeter Proximity
     const gasSource = new THREE.Vector3(0, 1.0, -1.8);
     const dist = camera.position.distanceTo(gasSource);
     // Max level at 0.5m, zero at 6m
-    let gasRate = Math.max(0, Math.min(100, (1 - (dist - 0.5) / 5.5) * 100));
-
-    // If leak is stopped, fade the rate
+    let proximity = Math.max(0, Math.min(100, (1 - (dist - 0.5) / 5.5) * 100));
+    
+    // If leak is stopped, fade the proximity quickly
     if (!window.gasSystem.isLeaking) {
-      gasRate *= 0.5; // Arbitrary reduction
+      proximity *= 0.2; 
+    }
+    
+    const multiDisplay = document.getElementById("multimeter-display");
+    if (multiDisplay) {
+      multiDisplay.innerText = `PROXIMITY: ${Math.floor(proximity)}%`;
+      multiDisplay.style.color = proximity > 70 ? "#ff0000" : (proximity > 30 ? "#ffff00" : "#00ffff");
     }
 
-    const gasDisplay = document.getElementById("gas-rate-display");
-    if (gasDisplay) {
-      gasDisplay.innerText = `GAS RATE: ${Math.floor(gasRate)}%`;
-      gasDisplay.style.color = gasRate > 70 ? "#ff0000" : (gasRate > 30 ? "#ffff00" : "#00ff00");
+    // HUD Logic: Room Gas Density
+    let activeParticles = 0;
+    for (let i = 0; i < window.gasSystem.particleCount; i++) {
+        if (window.gasSystem.particles[i].active) {
+            activeParticles++;
+        }
+    }
+    // Calculate density as a percentage of total particles
+    let roomDensity = (activeParticles / window.gasSystem.particleCount) * 100;
+
+    const densityDisplay = document.getElementById("room-density-display");
+    if (densityDisplay) {
+      densityDisplay.innerText = `ROOM DENSITY: ${Math.floor(roomDensity)}%`;
+      densityDisplay.style.color = roomDensity > 60 ? "#ff0000" : (roomDensity > 30 ? "#ffff00" : "#00ff00");
+    }
+
+    // Critical Warning
+    const warningDisplay = document.getElementById("density-warning");
+    if (warningDisplay) {
+      if (roomDensity > 60) {
+        warningDisplay.style.display = "block";
+      } else {
+        warningDisplay.style.display = "none";
+      }
     }
   }
 
