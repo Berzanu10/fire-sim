@@ -8,9 +8,10 @@ export class GasDispersionSystem {
     constructor(scene, startPosition) {
         this.scene = scene;
         this.startPosition = startPosition ? startPosition.clone() : new THREE.Vector3(0, 1.0, -1.8);
-        this.particleCount = 3000; // Drastically reduced for better transparency
+        this.particleCount = 3000;
         this.particles = [];
         this.isStarted = false;
+        this.isLeaking = true; // Added to control source leak
         
         this.geometry = new THREE.BufferGeometry();
         this.positions = new Float32Array(this.particleCount * 3);
@@ -41,7 +42,7 @@ export class GasDispersionSystem {
             depthWrite: false,
             blending: THREE.NormalBlending,
             uniforms: {
-                color: { value: new THREE.Color(0xaaff66) }, // Light yellowish green
+                color: { value: new THREE.Color(0xaaff66) },
             },
             vertexShader: `
                 attribute float opacity;
@@ -61,7 +62,7 @@ export class GasDispersionSystem {
                     float dist = distance(gl_PointCoord, vec2(0.5));
                     if (dist > 0.5) discard;
                     float alpha = (1.0 - smoothstep(0.1, 0.5, dist)) * vOpacity;
-                    gl_FragColor = vec4(color, alpha * 0.4); // Very subtle alpha
+                    gl_FragColor = vec4(color, alpha * 0.3); // Even thinner
                 }
             `
         });
@@ -75,11 +76,18 @@ export class GasDispersionSystem {
     }
 
     resetParticle(i) {
+        // If leaking is stopped, don't reactivate particles at the source
+        if (!this.isLeaking && this.particles[i] && this.particles[i].active) {
+            this.opacities[i] = 0;
+            this.particles[i].active = false;
+            return;
+        }
+
         this.positions[i * 3] = this.startPosition.x + (Math.random() - 0.5) * 0.1;
         this.positions[i * 3 + 1] = this.startPosition.y + (Math.random() - 0.5) * 0.1;
         this.positions[i * 3 + 2] = this.startPosition.z + (Math.random() - 0.5) * 0.1;
         this.opacities[i] = 0;
-        this.sizes[i] = Math.random() * 0.3 + 0.15; // Smaller particles
+        this.sizes[i] = Math.random() * 0.3 + 0.15;
         
         if (this.particles[i]) {
             this.particles[i].velocity.set(
@@ -94,6 +102,11 @@ export class GasDispersionSystem {
 
     start() {
         this.isStarted = true;
+        this.isLeaking = true;
+    }
+
+    stopLeaking() {
+        this.isLeaking = false;
     }
 
     applyAirflow(sourcePos, strength) {
@@ -113,13 +126,13 @@ export class GasDispersionSystem {
             const distSq = dx * dx + dy * dy + dz * dz;
             const dist = Math.sqrt(distSq);
             
-            if (dist < 8.0) { // Larger suction radius
-                const force = (1.0 - dist / 8.0) * strength;
-                p.externalForce.x += (dx / dist) * force * 0.4;
-                p.externalForce.y += (dy / dist) * force * 0.4;
-                p.externalForce.z += (dz / dist) * force * 0.4;
+            if (dist < 10.0) { // Larger suction radius
+                const force = (1.0 - dist / 10.0) * strength;
+                p.externalForce.x += (dx / dist) * force * 0.5;
+                p.externalForce.y += (dy / dist) * force * 0.5;
+                p.externalForce.z += (dz / dist) * force * 0.5;
                 
-                if (dist < 1.0) { // Larger cleanup radius
+                if (dist < 1.2) { // Particle disappears when inside vent
                     this.resetParticle(i);
                 }
             }
@@ -136,13 +149,13 @@ export class GasDispersionSystem {
         for (let i = 0; i < this.particleCount; i++) {
             const p = this.particles[i];
             
-            if (!p.active && this.elapsedTime > p.startTime) {
+            if (!p.active && this.isLeaking && this.elapsedTime > p.startTime) {
                 p.active = true;
             }
             
             if (p.active) {
                 p.velocity.add(p.externalForce);
-                p.externalForce.multiplyScalar(0.7); // Stronger suction effect
+                p.externalForce.multiplyScalar(0.6); // Stronger suction damping
                 
                 positions[i * 3] += p.velocity.x;
                 positions[i * 3 + 1] += p.velocity.y;
@@ -152,28 +165,35 @@ export class GasDispersionSystem {
                 p.velocity.y += (Math.random() - 0.5) * 0.001;
                 p.velocity.z += (Math.random() - 0.5) * 0.001;
                 
-                p.velocity.multiplyScalar(0.96);
+                p.velocity.multiplyScalar(0.95);
                 
-                // Max opacity drastically reduced to 0.15 for subtle effect
                 if (opacities[i] < 0.15) {
                     opacities[i] += 0.03 * deltaTime;
                 }
                 
-                const limitX = 2.4;
-                const limitZ = 2.4;
-                const limitY = 2.9;
+                // If leaking stopped, fade out particles that are not near vents
+                if (!this.isLeaking && p.externalForce.lengthSq() < 0.001) {
+                    opacities[i] -= 0.05 * deltaTime;
+                    if (opacities[i] <= 0) {
+                        p.active = false;
+                    }
+                }
+
+                const limitX = 2.45;
+                const limitZ = 2.45;
+                const limitY = 2.95;
                 
                 if (Math.abs(positions[i * 3]) > limitX) {
                     positions[i * 3] = Math.sign(positions[i * 3]) * limitX;
-                    p.velocity.x *= -0.1;
+                    p.velocity.x *= -0.05;
                 }
                 if (positions[i * 3 + 1] < 0 || positions[i * 3 + 1] > limitY) {
                     positions[i * 3 + 1] = Math.max(0, Math.min(positions[i * 3 + 1], limitY));
-                    p.velocity.y *= -0.1;
+                    p.velocity.y *= -0.05;
                 }
                 if (Math.abs(positions[i * 3 + 2]) > limitZ) {
                     positions[i * 3 + 2] = Math.sign(positions[i * 3 + 2]) * limitZ;
-                    p.velocity.z *= -0.1;
+                    p.velocity.z *= -0.05;
                 }
             }
         }

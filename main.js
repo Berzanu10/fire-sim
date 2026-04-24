@@ -289,10 +289,11 @@ const REALISTIC_MODELS = {
   ventilationFan: {
     file: "ventilation_fan.glb",
     position: { x: 0, y: 0, z: 0 },
-    scale: { x: 5.0, y: 5.0, z: 5.0 }, // Increased to 5x
+    scale: { x: 15.0, y: 15.0, z: 15.0 }, // 3x larger than 5.0
     rotation: { x: 0, y: 0, z: 0 },
   }
 };
+
 
 
 
@@ -1385,20 +1386,19 @@ function createElectricalPanel() {
 }
 
 function createAirSources() {
-  const source1Pos = new THREE.Vector3(-2.45, 1.8, 0); // Left wall
-  const source2Pos = new THREE.Vector3(2.45, 1.8, 0);  // Right wall
+  const source1Pos = new THREE.Vector3(-2.48, 1.8, 0); // Closer to left wall
+  const source2Pos = new THREE.Vector3(2.48, 1.8, 0);  // Closer to right wall
 
   const createFan = (pos, name) => {
     const group = new THREE.Group();
     group.position.copy(pos);
+    group.name = name;
     
     if (loadedModels.ventilationFan) {
       const fanModel = loadedModels.ventilationFan.clone();
+      fanModel.name = name;
+      fanModel.rotation.y = pos.x > 0 ? -Math.PI / 2 : Math.PI / 2;
       
-      // Make it face the center of the room (parallel to wall)
-      fanModel.lookAt(new THREE.Vector3(0, pos.y, 0));
-      
-      // Ensure all meshes in the model have the correct name for raycasting
       fanModel.traverse(child => {
         if (child.isMesh) {
           child.name = name;
@@ -1406,40 +1406,44 @@ function createAirSources() {
           child.userData.sourceName = name;
         }
       });
-      
       group.add(fanModel);
     } else {
-      // Fallback - even larger box
-      const geo = new THREE.BoxGeometry(0.2, 1.5, 1.5);
-      const mat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+      const geo = new THREE.BoxGeometry(0.05, 1.5, 1.5);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x444444 });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.name = name;
       group.add(mesh);
     }
 
-    scene.add(group);
-    return { pos, active: false, mesh: group.children[0] };
+    room.add(group); // CRITICAL: Add to room group for raycaster
+    return { pos, active: false, mesh: group };
   };
 
   airSources.push(createFan(source1Pos, "AirSource1"));
   airSources.push(createFan(source2Pos, "AirSource2"));
 }
 
+
 function handleInteraction(object) {
   if (object.name === "Door") {
     toggleDoor();
   } else if (object.name.includes("AirSource") || object.userData.isAirSource) {
     const sourceName = object.userData.sourceName || object.name;
-    const source = airSources.find(s => s.mesh.name === sourceName || (s.mesh.children && s.mesh.children.some(c => c.name === sourceName)));
-    
-    // Direct search if above fails
-    const actualSource = airSources.find(s => s.mesh.name === "AirSource1" || s.mesh.name === "AirSource2" ? s.mesh.name === sourceName : false) || 
-                         airSources.find(s => s.mesh.children.some(c => c.name === sourceName));
+    const actualSource = airSources.find(s => s.mesh.name === sourceName || (s.mesh.children && s.mesh.children.some(c => c.name === sourceName)));
 
     if (actualSource) {
       actualSource.active = !actualSource.active;
       showMessage(actualSource.active ? "🌬️ Ventilation ON" : "🔇 Ventilation OFF", 1000);
       
+      // Stop the leak if any vent is active
+      if (window.gasSystem) {
+        const anyActive = airSources.some(s => s.active);
+        if (anyActive) {
+          window.gasSystem.stopLeaking();
+          showMessage("✅ Gas leak contained! Clearing the air...", 3000);
+        }
+      }
+
       actualSource.mesh.traverse((child) => {
         if (child.isMesh) {
           child.material.emissive = new THREE.Color(actualSource.active ? 0x00ff00 : 0x000000);
@@ -1449,6 +1453,7 @@ function handleInteraction(object) {
     }
   }
 }
+
 
 
 
