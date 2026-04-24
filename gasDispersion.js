@@ -8,7 +8,7 @@ export class GasDispersionSystem {
     constructor(scene, startPosition) {
         this.scene = scene;
         this.startPosition = startPosition ? startPosition.clone() : new THREE.Vector3(0, 1.0, -1.8);
-        this.particleCount = 6000; // Slightly reduced for better performance and less density
+        this.particleCount = 3000; // Drastically reduced for better transparency
         this.particles = [];
         this.isStarted = false;
         
@@ -41,7 +41,7 @@ export class GasDispersionSystem {
             depthWrite: false,
             blending: THREE.NormalBlending,
             uniforms: {
-                color: { value: new THREE.Color(0x007733) }, // Slightly lighter and more vibrant green
+                color: { value: new THREE.Color(0xaaff66) }, // Light yellowish green
             },
             vertexShader: `
                 attribute float opacity;
@@ -61,7 +61,7 @@ export class GasDispersionSystem {
                     float dist = distance(gl_PointCoord, vec2(0.5));
                     if (dist > 0.5) discard;
                     float alpha = (1.0 - smoothstep(0.1, 0.5, dist)) * vOpacity;
-                    gl_FragColor = vec4(color, alpha * 0.6); // Slightly lower alpha for less density
+                    gl_FragColor = vec4(color, alpha * 0.4); // Very subtle alpha
                 }
             `
         });
@@ -79,7 +79,7 @@ export class GasDispersionSystem {
         this.positions[i * 3 + 1] = this.startPosition.y + (Math.random() - 0.5) * 0.1;
         this.positions[i * 3 + 2] = this.startPosition.z + (Math.random() - 0.5) * 0.1;
         this.opacities[i] = 0;
-        this.sizes[i] = Math.random() * 0.4 + 0.2; // Slightly smaller particles
+        this.sizes[i] = Math.random() * 0.3 + 0.15; // Smaller particles
         
         if (this.particles[i]) {
             this.particles[i].velocity.set(
@@ -113,13 +113,13 @@ export class GasDispersionSystem {
             const distSq = dx * dx + dy * dy + dz * dz;
             const dist = Math.sqrt(distSq);
             
-            if (dist < 6.0) { // Slightly larger suction radius
-                const force = (1.0 - dist / 6.0) * strength;
-                p.externalForce.x += (dx / dist) * force * 0.3;
-                p.externalForce.y += (dy / dist) * force * 0.3;
-                p.externalForce.z += (dz / dist) * force * 0.3;
+            if (dist < 8.0) { // Larger suction radius
+                const force = (1.0 - dist / 8.0) * strength;
+                p.externalForce.x += (dx / dist) * force * 0.4;
+                p.externalForce.y += (dy / dist) * force * 0.4;
+                p.externalForce.z += (dz / dist) * force * 0.4;
                 
-                if (dist < 0.6) { // Slightly larger cleanup radius
+                if (dist < 1.0) { // Larger cleanup radius
                     this.resetParticle(i);
                 }
             }
@@ -142,21 +142,21 @@ export class GasDispersionSystem {
             
             if (p.active) {
                 p.velocity.add(p.externalForce);
-                p.externalForce.multiplyScalar(0.8);
+                p.externalForce.multiplyScalar(0.7); // Stronger suction effect
                 
                 positions[i * 3] += p.velocity.x;
                 positions[i * 3 + 1] += p.velocity.y;
                 positions[i * 3 + 2] += p.velocity.z;
                 
-                p.velocity.x += (Math.random() - 0.5) * 0.0015;
-                p.velocity.y += (Math.random() - 0.5) * 0.0015;
-                p.velocity.z += (Math.random() - 0.5) * 0.0015;
+                p.velocity.x += (Math.random() - 0.5) * 0.001;
+                p.velocity.y += (Math.random() - 0.5) * 0.001;
+                p.velocity.z += (Math.random() - 0.5) * 0.001;
                 
-                p.velocity.multiplyScalar(0.97);
+                p.velocity.multiplyScalar(0.96);
                 
-                // Max opacity reduced to 0.4 for better visibility through gas
-                if (opacities[i] < 0.4) {
-                    opacities[i] += 0.05 * deltaTime;
+                // Max opacity drastically reduced to 0.15 for subtle effect
+                if (opacities[i] < 0.15) {
+                    opacities[i] += 0.03 * deltaTime;
                 }
                 
                 const limitX = 2.4;
@@ -165,15 +165,15 @@ export class GasDispersionSystem {
                 
                 if (Math.abs(positions[i * 3]) > limitX) {
                     positions[i * 3] = Math.sign(positions[i * 3]) * limitX;
-                    p.velocity.x *= -0.2;
+                    p.velocity.x *= -0.1;
                 }
                 if (positions[i * 3 + 1] < 0 || positions[i * 3 + 1] > limitY) {
                     positions[i * 3 + 1] = Math.max(0, Math.min(positions[i * 3 + 1], limitY));
-                    p.velocity.y *= -0.2;
+                    p.velocity.y *= -0.1;
                 }
                 if (Math.abs(positions[i * 3 + 2]) > limitZ) {
                     positions[i * 3 + 2] = Math.sign(positions[i * 3 + 2]) * limitZ;
-                    p.velocity.z *= -0.2;
+                    p.velocity.z *= -0.1;
                 }
             }
         }

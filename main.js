@@ -289,10 +289,11 @@ const REALISTIC_MODELS = {
   ventilationFan: {
     file: "ventilation_fan.glb",
     position: { x: 0, y: 0, z: 0 },
-    scale: { x: 2.5, y: 2.5, z: 2.5 }, // Increased 5x from 0.5
+    scale: { x: 5.0, y: 5.0, z: 5.0 }, // Increased to 5x
     rotation: { x: 0, y: 0, z: 0 },
   }
 };
+
 
 
 
@@ -1369,7 +1370,6 @@ function createElectricalPanel() {
   room.add(label);
 
   // Lock/Latch
-
   const lockGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8);
   const lockMaterial = new THREE.MeshStandardMaterial({
     color: 0x222222,
@@ -1384,10 +1384,6 @@ function createElectricalPanel() {
   window.electricalPanel = panel;
 }
 
-// ----------------- Senaryo Kontrol Fonksiyonları ------------------------
-
-// ----------------- Yangın Kontrol Fonksiyonları ------------------------
-
 function createAirSources() {
   const source1Pos = new THREE.Vector3(-2.45, 1.8, 0); // Left wall
   const source2Pos = new THREE.Vector3(2.45, 1.8, 0);  // Right wall
@@ -1398,22 +1394,24 @@ function createAirSources() {
     
     if (loadedModels.ventilationFan) {
       const fanModel = loadedModels.ventilationFan.clone();
-      fanModel.name = name;
-      // Rotate to be parallel to the wall (model faces room)
-      // If diagonal, we might need to adjust this depending on the GLB's internal orientation
-      fanModel.rotation.y = pos.x > 0 ? -Math.PI / 2 : Math.PI / 2;
+      
+      // Make it face the center of the room (parallel to wall)
+      fanModel.lookAt(new THREE.Vector3(0, pos.y, 0));
       
       // Ensure all meshes in the model have the correct name for raycasting
       fanModel.traverse(child => {
-        if (child.isMesh) child.name = name;
+        if (child.isMesh) {
+          child.name = name;
+          child.userData.isAirSource = true;
+          child.userData.sourceName = name;
+        }
       });
       
       group.add(fanModel);
     } else {
-      // Fallback - larger box
-      const geo = new THREE.BoxGeometry(0.1, 1.0, 1.0);
+      // Fallback - even larger box
+      const geo = new THREE.BoxGeometry(0.2, 1.5, 1.5);
       const mat = new THREE.MeshStandardMaterial({ color: 0x555555 });
-
       const mesh = new THREE.Mesh(geo, mat);
       mesh.name = name;
       group.add(mesh);
@@ -1427,27 +1425,31 @@ function createAirSources() {
   airSources.push(createFan(source2Pos, "AirSource2"));
 }
 
-
 function handleInteraction(object) {
   if (object.name === "Door") {
     toggleDoor();
-  } else if (object.name.includes("AirSource")) {
-    const source = airSources.find(s => s.mesh.name === object.name);
-    if (source) {
-      source.active = !source.active;
-      // Visual feedback: Emit light or change color if possible, or just message
-      showMessage(source.active ? "🌬️ Ventilation ON" : "🔇 Ventilation OFF", 1000);
+  } else if (object.name.includes("AirSource") || object.userData.isAirSource) {
+    const sourceName = object.userData.sourceName || object.name;
+    const source = airSources.find(s => s.mesh.name === sourceName || (s.mesh.children && s.mesh.children.some(c => c.name === sourceName)));
+    
+    // Direct search if above fails
+    const actualSource = airSources.find(s => s.mesh.name === "AirSource1" || s.mesh.name === "AirSource2" ? s.mesh.name === sourceName : false) || 
+                         airSources.find(s => s.mesh.children.some(c => c.name === sourceName));
+
+    if (actualSource) {
+      actualSource.active = !actualSource.active;
+      showMessage(actualSource.active ? "🌬️ Ventilation ON" : "🔇 Ventilation OFF", 1000);
       
-      // Update fan material to indicate state
-      source.mesh.traverse((child) => {
+      actualSource.mesh.traverse((child) => {
         if (child.isMesh) {
-          child.material.emissive = new THREE.Color(source.active ? 0x00ff00 : 0x000000);
+          child.material.emissive = new THREE.Color(actualSource.active ? 0x00ff00 : 0x000000);
           child.material.emissiveIntensity = 0.5;
         }
       });
     }
   }
 }
+
 
 
 window.validateAndStart = function() {
