@@ -93,13 +93,15 @@ export class GasDispersionSystem {
         
         if (this.particles[i]) {
             this.particles[i].velocity.set(
-                (Math.random() - 0.5) * 0.04, // Daha hızlı yayılma
-                (Math.random() - 0.1) * 0.03, // Yukarı doğru güçlü hareket
-                (Math.random() - 0.5) * 0.04
+                (Math.random() - 0.5) * 0.02, 
+                (Math.random() - 0.1) * 0.015,
+                (Math.random() - 0.5) * 0.02
             );
             this.particles[i].active = false;
-            this.particles[i].startTime = this.elapsedTime + Math.random() * 0.2; // Çok daha hızlı çıkacak (8000 partikül için)
+            // 8000 partikül 30 saniye içine yayılarak çıkacak, yoğunluk yavaş artacak
+            this.particles[i].startTime = this.elapsedTime + Math.random() * 30.0; 
         }
+
 
     }
 
@@ -166,11 +168,13 @@ export class GasDispersionSystem {
                 positions[i * 3 + 1] += p.velocity.y;
                 positions[i * 3 + 2] += p.velocity.z;
                 
-                p.velocity.x += (Math.random() - 0.5) * 0.0005; // Yavaş türbülans
-                p.velocity.y += (Math.random() - 0.5) * 0.0005;
-                p.velocity.z += (Math.random() - 0.5) * 0.0005;
+                p.velocity.x += (Math.random() - 0.5) * 0.0002; // Daha düşük türbülans
+                p.velocity.y += (Math.random() - 0.5) * 0.0002;
+                p.velocity.z += (Math.random() - 0.5) * 0.0002;
                 
-                p.velocity.multiplyScalar(0.92); // Hızını daha çabuk kaybedecek (Yavaş ilerleyecek)
+                // Çok düşük sönümleme: Yavaş ama uzaklara kadar kesintisiz süzülme sağlar
+                p.velocity.multiplyScalar(0.99); 
+
 
 
                 
