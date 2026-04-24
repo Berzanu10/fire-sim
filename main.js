@@ -289,10 +289,26 @@ const REALISTIC_MODELS = {
   ventilationFan: {
     file: "ventilation_fan.glb",
     position: { x: 0, y: 0, z: 0 },
-    scale: { x: 15.0, y: 15.0, z: 15.0 }, // 3x larger than 5.0
+    scale: { x: 10.0, y: 10.0, z: 10.0 }, 
+    rotation: { x: 0, y: 0, z: 0 },
+  },
+  // Window - Try FBX or fallback
+  window: {
+    file: "Window_AnimatedV1.fbx", 
+    position: { x: 0, y: 0, z: 0 },
+    scale: { x: 0.01, y: 0.01, z: 0.01 },
+    rotation: { x: 0, y: 0, z: 0 },
+  },
+  // Multimeter
+  multimeter: {
+    file: "u1602b_oscilloscope-multimeter.glb",
+    position: { x: 0, y: 0, z: 0 },
+    scale: { x: 0.5, y: 0.5, z: 0.5 },
     rotation: { x: 0, y: 0, z: 0 },
   }
 };
+
+
 
 
 
@@ -699,24 +715,57 @@ async function createRoom() {
   rightWall.castShadow = true;
   room.add(rightWall);
 
-  // Ön Duvar (Kapılı)
-  // Kapı boşluğu: x= -0.5 ile 0.5 arası (1m genişlik), Yükseklik 2.2m
-
-  // Sol Parça (İçeriden bakınca sağ, x > 0.5)
-  const frontRightGeo = new THREE.BoxGeometry(2.0, wallHeight, wallThickness);
-  const frontRight = new THREE.Mesh(frontRightGeo, wallMaterial);
-  frontRight.position.set(1.5, wallHeight / 2, roomSize / 2); // (0.5 + 2.5)/2 = 1.5
-  frontRight.castShadow = true;
-  frontRight.receiveShadow = true;
-  room.add(frontRight);
-
-  // Sağ Parça (İçeriden bakınca sol, x < -0.5)
+  // --- FRONT WALL (with Door & Window) ---
+  // Left Side (from inside, x < -0.5)
   const frontLeftGeo = new THREE.BoxGeometry(2.0, wallHeight, wallThickness);
   const frontLeft = new THREE.Mesh(frontLeftGeo, wallMaterial);
   frontLeft.position.set(-1.5, wallHeight / 2, roomSize / 2);
   frontLeft.castShadow = true;
   frontLeft.receiveShadow = true;
   room.add(frontLeft);
+
+  // Right Side (from inside, x > 0.5) - SPLIT FOR WINDOW
+  // Window at x=[1.0, 2.0], y=[1.0, 2.2]
+  // Bottom part
+  const windowBottomGeo = new THREE.BoxGeometry(2.0, 1.0, wallThickness);
+  const windowBottom = new THREE.Mesh(windowBottomGeo, wallMaterial);
+  windowBottom.position.set(1.5, 0.5, roomSize / 2);
+  room.add(windowBottom);
+
+  // Top part
+  const windowTopGeo = new THREE.BoxGeometry(2.0, 0.8, wallThickness);
+  const windowTop = new THREE.Mesh(windowTopGeo, wallMaterial);
+  windowTop.position.set(1.5, 2.6, roomSize / 2);
+  room.add(windowTop);
+
+  // Side part 1 (between door and window)
+  const windowSide1Geo = new THREE.BoxGeometry(0.5, 1.6, wallThickness);
+  const windowSide1 = new THREE.Mesh(windowSide1Geo, wallMaterial);
+  windowSide1.position.set(0.75, 1.8, roomSize / 2);
+  room.add(windowSide1);
+
+  // Side part 2 (corner)
+  const windowSide2Geo = new THREE.BoxGeometry(0.5, 1.6, wallThickness);
+  const windowSide2 = new THREE.Mesh(windowSide2Geo, wallMaterial);
+  windowSide2.position.set(2.25, 1.8, roomSize / 2);
+  room.add(windowSide2);
+
+  // WINDOW MODEL
+  if (loadedModels.window) {
+    const windowModel = loadedModels.window.clone();
+    windowModel.position.set(1.5, 1.7, roomSize / 2);
+    windowModel.scale.set(3.5, 3.5, 3.5); // Increase scale
+    windowModel.name = "Window";
+    windowModel.traverse(child => {
+      if (child.isMesh) {
+        child.name = "Window";
+        child.material.transparent = true;
+        child.material.opacity = 0.5;
+      }
+    });
+    room.add(windowModel);
+    window.officeWindow = windowModel;
+  }
 
   // Üst Parça (Kapı üstü)
   const doorHeight = 2.2;
@@ -1073,11 +1122,24 @@ function createProceduralHands() {
     return handGroup;
   };
 
-  handsGroup.add(createHand(false)); // Left
-  handsGroup.add(createHand(true));  // Right
+  const leftHand = createHand(false);
+  const rightHand = createHand(true);
+  
+  handsGroup.add(leftHand);
+  handsGroup.add(rightHand);
+
+  // Add multimeter to right hand
+  if (loadedModels.multimeter) {
+    const multi = loadedModels.multimeter.clone();
+    multi.position.set(0.25, -0.2, -0.4);
+    multi.rotation.set(-0.5, 0, 0);
+    multi.scale.set(0.1, 0.1, 0.1);
+    handsGroup.add(multi);
+  }
 
   camera.add(handsGroup);
 }
+
 
 function createFallbackAlarmButton() {
   // GİRİŞE YAKIN - Sol duvar (x=-2.4, z=1.8)
@@ -1386,8 +1448,7 @@ function createElectricalPanel() {
 }
 
 function createAirSources() {
-  const source1Pos = new THREE.Vector3(-2.48, 1.8, 0); // Closer to left wall
-  const source2Pos = new THREE.Vector3(2.48, 1.8, 0);  // Closer to right wall
+  const source1Pos = new THREE.Vector3(-2.48, 1.8, 0); // Left wall
 
   const createFan = (pos, name) => {
     const group = new THREE.Group();
@@ -1397,7 +1458,10 @@ function createAirSources() {
     if (loadedModels.ventilationFan) {
       const fanModel = loadedModels.ventilationFan.clone();
       fanModel.name = name;
-      fanModel.rotation.y = pos.x > 0 ? -Math.PI / 2 : Math.PI / 2;
+      fanModel.scale.set(10.0, 10.0, 10.0);
+      
+      // Explicit rotation to be parallel to ZY plane (flush with left wall)
+      fanModel.rotation.set(0, Math.PI / 2, 0);
       
       fanModel.traverse(child => {
         if (child.isMesh) {
@@ -1427,6 +1491,15 @@ function createAirSources() {
 function handleInteraction(object) {
   if (object.name === "Door") {
     toggleDoor();
+  } else if (object.name === "Window") {
+    window.isWindowOpen = !window.isWindowOpen;
+    showMessage(window.isWindowOpen ? "🪟 Window OPENED" : "🪟 Window CLOSED", 1000);
+    
+    // Window effect
+    if (window.isWindowOpen && window.gasSystem) {
+      window.gasSystem.stopLeaking();
+      showMessage("✅ Gas leak contained! Evacuating through window...", 3000);
+    }
   } else if (object.name.includes("AirSource") || object.userData.isAirSource) {
     const sourceName = object.userData.sourceName || object.name;
     const actualSource = airSources.find(s => s.mesh.name === sourceName || (s.mesh.children && s.mesh.children.some(c => c.name === sourceName)));
@@ -1435,9 +1508,8 @@ function handleInteraction(object) {
       actualSource.active = !actualSource.active;
       showMessage(actualSource.active ? "🌬️ Ventilation ON" : "🔇 Ventilation OFF", 1000);
       
-      // Stop the leak if any vent is active
       if (window.gasSystem) {
-        const anyActive = airSources.some(s => s.active);
+        const anyActive = airSources.some(s => s.active) || window.isWindowOpen;
         if (anyActive) {
           window.gasSystem.stopLeaking();
           showMessage("✅ Gas leak contained! Clearing the air...", 3000);
@@ -1453,6 +1525,7 @@ function handleInteraction(object) {
     }
   }
 }
+
 
 
 
@@ -1697,7 +1770,6 @@ function animate() {
   renderer.render(scene, camera);
 
 
-  // Status Update
   // Ventilation Effect
   if (timerStarted && window.gasSystem) {
     airSources.forEach(source => {
@@ -1712,7 +1784,32 @@ function animate() {
         });
       }
     });
+
+    // Window Suction Effect
+    if (window.isWindowOpen) {
+      const windowPos = new THREE.Vector3(1.5, 1.6, 2.5);
+      window.gasSystem.applyAirflow(windowPos, 0.8);
+    }
+    
+    // Gas Level HUD Logic
+    const gasSource = new THREE.Vector3(0, 1.0, -1.8);
+    const dist = camera.position.distanceTo(gasSource);
+    // Max level at 0.5m, zero at 6m
+    let gasRate = Math.max(0, Math.min(100, (1 - (dist - 0.5) / 5.5) * 100));
+    
+    // If leak is stopped, fade the rate
+    if (!window.gasSystem.isLeaking) {
+      gasRate *= 0.5; // Arbitrary reduction
+    }
+    
+    const gasDisplay = document.getElementById("gas-rate-display");
+    if (gasDisplay) {
+      gasDisplay.innerText = `GAS RATE: ${Math.floor(gasRate)}%`;
+      gasDisplay.style.color = gasRate > 70 ? "#ff0000" : (gasRate > 30 ? "#ffff00" : "#00ff00");
+    }
   }
+
+
 
 
 
